@@ -26,3 +26,14 @@ ENV PYTHONPATH=/usr/src/app
 
 # Default command: run Flask inside the conda environment named 'pcd'
 CMD ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "run", "--host=0.0.0.0", "--port=5000"]
+
+# Test stage: create the conda env and run the test suite inside it
+FROM condaforge/mambaforge:latest AS test
+WORKDIR /usr/src/app
+COPY environment.yml .
+RUN conda env create -f environment.yml
+SHELL ["/bin/bash", "-lc"]
+COPY . /usr/src/app
+ENV PYTHONPATH=/usr/src/app
+# Run pytest inside the `pcd` environment; the build will fail if tests fail
+RUN conda run -n pcd pytest -q

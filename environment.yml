@@ -18,4 +18,5 @@ dependencies:
     - requests
     - pytest
     - black
+    - PyJWT
     # add other pip deps here

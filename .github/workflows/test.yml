@@ -1,0 +1,56 @@
+name: CI Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker cache
+        run: docker info || true
+
+      - name: Run dockerized tests (make test)
+        run: make test
+
+  pytest-report:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-activate-base: false
+
+      - name: Create conda env from environment.yml
+        run: conda env create -f environment.yml
+
+      - name: Run pytest with JUnit XML report
+        run: |
+          mkdir -p reports
+          conda run -n pcd pytest -q --junitxml=reports/junit.xml || true
+        continue-on-error: true
+
+      - name: Upload JUnit report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: reports/junit.xml
+
+      - name: Publish test report to PR (annotations)
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: pytest
+          path: reports/junit.xml
+          reporter: junit

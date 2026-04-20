@@ -154,6 +154,40 @@ For production environments, you can use a WSGI server like **Gunicorn** and dep
 
 ---
 
+## How to run the full flow (Login -> Sanitize -> Generate -> Audit)
+
+1. Login to get an admin token (default password: `admin-pass`):
+
+```bash
+curl -X POST http://localhost:5000/login -H 'Content-Type: application/json' -d '{"password":"admin-pass"}'
+# {"status":"ok","token":"..."}
+```
+
+2. Sanitize a prompt:
+
+```bash
+curl -X POST http://localhost:5000/sanitize -H 'Content-Type: application/json' -d '{"role":"client","prompt":"My phone is 012-3456789"}'
+# {"status":"sanitized","sanitized_prompt":"My phone is [REDACTED_PHONE]"}
+```
+
+3. Generate via LLM Proxy (ensure sanitized_prompt is sent):
+
+```bash
+curl -X POST http://localhost:5000/generate -H 'Content-Type: application/json' -d '{"sanitized_prompt":"Hello world"}'
+```
+
+4. View audit summary (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' http://localhost:5000/audit/summary
+```
+
+5. Dashboard (passes token via query):
+
+Open in browser: `http://localhost:5000/audit/dashboard?token=<token>`
+
+---
+
 ## License
 
 MIT License

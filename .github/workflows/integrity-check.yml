@@ -1,0 +1,88 @@
+name: Audit Integrity Check
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # daily at 02:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    env:
+      AUDIT_HMAC_KEY: ${{ secrets.AUDIT_HMAC_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-activate-base: false
+          environment-file: environment.yml
+          environment-name: pcd
+
+      - name: Run integrity check
+        id: integrity_check
+        run: |
+          echo "Running audit integrity verification..."
+          conda run -n pcd python - <<'PY'
+          from app.audit import get_manager
+          import json
+          res = get_manager().verify_integrity()
+          print(res)
+          if not res.get('integrity_ok', False):
+              tampered = res.get('tampered_ids', [])
+              with open('tampered_ids.json','w') as f:
+                  json.dump({'tampered_ids': tampered}, f)
+              print('Tampering detected:', tampered)
+              raise SystemExit(2)
+          else:
+              print('Integrity OK.')
+          PY
+
+      - name: Upload tampered artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tampered-ids
+          path: tampered_ids.json
+
+      - name: Create issue on tampering
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const runId = process.env.GITHUB_RUN_ID;
+            const fs = require('fs');
+            let body = `The periodic audit integrity check detected tampering. Workflow run id: ${runId}. Please investigate and check the audit DB.`;
+            try {
+              const content = fs.readFileSync('tampered_ids.json', 'utf8');
+              body += `\n\nTampered IDs:\n\n${content}`;
+            } catch (e) {
+              // no artifact available
+            }
+            await github.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Audit Integrity Failure Detected',
+              body
+            })
+
+      - name: Notify Slack on tampering
+        if: failure()
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "Audit Integrity check detected tampering. Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "attachments": [
+                {
+                  "color": "danger",
+                  "title": "Audit Integrity Failure Detected",
+                  "text": "See the attached artifact 'tampered-ids' for details or check the created GitHub Issue."
+                }
+              ]
+            }
