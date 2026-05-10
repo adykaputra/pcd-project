@@ -145,6 +145,47 @@ def run_redaction_jury(text: str) -> Dict[str, Any]:
     }
 
 
+def sanitize_prompt_for_llm(text: str) -> Dict[str, Any]:
+    """Apply layered PII redaction before forwarding content to any LLM.
+
+    This function is stricter than ``run_redaction_jury`` because it is used as a
+    final privacy boundary before model calls. It applies multiple detectors in
+    sequence so PII categories covered by different tools are cumulatively
+    removed.
+    """
+    if not text:
+        return {
+            "sanitized_prompt": text,
+            "had_pii": False,
+            "remaining_pii_counts": {"id": 0, "phone": 0, "email": 0},
+            "tool_counts": {
+                "A": {"id": 0, "phone": 0, "email": 0},
+                "B": {"id": 0, "phone": 0, "email": 0},
+                "C": {"id": 0, "phone": 0, "email": 0},
+            },
+        }
+
+    # Layer detections to avoid relying on a single winning tool.
+    redacted, counts_a = _tool_a_regex_redaction(text)
+    redacted, counts_b = _tool_b_dictionary_redaction(redacted)
+    redacted, counts_c = _tool_c_mock_ai_redaction(redacted)
+
+    # Final deterministic pass for core identifiers.
+    redacted = redact_pii(redacted)
+    remaining = detect_pii_counts(redacted)
+
+    return {
+        "sanitized_prompt": redacted,
+        "had_pii": redacted != text,
+        "remaining_pii_counts": remaining,
+        "tool_counts": {
+            "A": counts_a,
+            "B": counts_b,
+            "C": counts_c,
+        },
+    }
+
+
 def redact_pii(text: str) -> str:
     """Return a copy of `text` with PII redacted using Tool A (Regex).
 

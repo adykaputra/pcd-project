@@ -1,36 +1,42 @@
 from flask import Blueprint, request, jsonify, current_app
-from app.module2.logic import redact_pii
+from app.module2.logic import sanitize_prompt_for_llm
 
 bp = Blueprint('module3', __name__)
 
 @bp.route('/generate', methods=['POST'])
 def generate():
-    """Proxy endpoint to send sanitized prompt to an LLM backend.
+    """Proxy endpoint that redacts PII before forwarding to an LLM backend.
 
     Expected input JSON:
+      { "prompt": "...", "model": "optional-model-name" }
+      or legacy:
       { "sanitized_prompt": "...", "model": "optional-model-name" }
 
     Behavior:
-      - Require `sanitized_prompt` field.
-      - Re-run `redact_pii` as a safety check; if PII is still present, reject (400).
-      - Forward ONLY the sanitized prompt to the LLM backend (here we mock the call).
+      - Accept `prompt` (preferred) or `sanitized_prompt` (legacy).
+      - Always run a strict redaction pass before forwarding to the LLM.
+      - Reject requests if any core PII patterns still remain after redaction.
+      - Forward only the redacted prompt to the LLM backend.
       - Return the model response.
     """
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"status": "denied", "message": "Invalid request: JSON body required"}), 400
 
-    sanitized_prompt = data.get('sanitized_prompt')
-    if not sanitized_prompt or not isinstance(sanitized_prompt, str):
-        return jsonify({"status": "denied", "message": "Invalid request: sanitized_prompt is required"}), 400
+    raw_prompt = data.get('prompt')
+    legacy_prompt = data.get('sanitized_prompt')
+    inbound_prompt = raw_prompt if isinstance(raw_prompt, str) else legacy_prompt
+    if not inbound_prompt or not isinstance(inbound_prompt, str):
+        return jsonify({"status": "denied", "message": "Invalid request: prompt is required"}), 400
 
-    # Safety check: ensure no PII remains
-    rechecked = redact_pii(sanitized_prompt)
-    if rechecked != sanitized_prompt:
-        # If PII is found during the final check, log and reject
+    # Always sanitize at the LLM boundary to avoid leaking user PII.
+    redaction_result = sanitize_prompt_for_llm(inbound_prompt)
+    sanitized_prompt = redaction_result["sanitized_prompt"]
+    remaining = redaction_result["remaining_pii_counts"]
+    if any((remaining or {}).values()):
         from flask import g
         current_app.logger.warning(
-            "[LLM_PROXY] Attempt to forward prompt containing PII; rejected",
+            "[LLM_PROXY] Prompt still contains PII after redaction; rejected",
             extra={
                 "event_type": "SECURITY_DENIED",
                 "request_id": getattr(g, "request_id", None),
@@ -74,5 +80,6 @@ def generate():
         "status": "ok",
         "provider": provider,
         "model": model,
-        "response": result.get("text")
+        "response": result.get("text"),
+        "redaction_applied": redaction_result["had_pii"],
     }), 200
