@@ -9,6 +9,8 @@ This project is no longer just a "redaction script." It is now an **LLM Privacy 
 3. Stores original values in an encrypted vault
 4. Sends only tokenized prompts to LLM providers
 5. Allows controlled admin-only detokenization for legal/audit workflows
+6. Applies a risk/confidence policy engine before model forwarding
+7. Exposes an adversarial benchmark endpoint for measurable privacy evaluation
 
 ---
 
@@ -42,6 +44,7 @@ The mapping is deterministic (same input -> same token) for context continuity, 
 3. Reject if core PII still remains (fail-safe)
 4. Send tokenized prompt to LLM adapter
 5. Record auditable security events and tokenization counts
+6. Evaluate risk score + confidence and apply policy action (`allow` / `challenge` / `block`)
 
 ### `/detokenize` flow (admin-only)
 
@@ -49,6 +52,12 @@ The mapping is deterministic (same input -> same token) for context continuity, 
 2. Resolve tokens using vault
 3. Return reconstructed prompt for compliance use-cases
 4. Log `PII_DETOKENIZED` audit event
+
+### `/privacy/benchmark` flow (admin-only)
+
+1. Run a curated adversarial suite (explicit + obfuscated PII)
+2. Measure leak-rate, utility proxy score, latency, and policy-action distribution
+3. Return per-case traces for explainable demo and validation
 
 ---
 
@@ -61,6 +70,8 @@ This architecture contributes beyond common coursework by combining:
 - **Reversible secure vault workflows**
 - **RBAC-governed re-identification**
 - **Tamper-evident audit logging**
+- **Risk-based policy enforcement with confidence scoring**
+- **Red-team style benchmark metrics**
 
 This gives a strong "systems + security + AI" story for viva/demo.
 
@@ -76,10 +87,10 @@ This gives a strong "systems + security + AI" story for viva/demo.
 
 ---
 
-## Future Upgrades to Reach "Research-Grade"
+## Next Upgrades to Reach "Research-Grade"
 
-1. Add real NER model (spaCy/transformer) to complement regex and dictionaries
-2. Introduce confidence/risk score with policy actions (allow/challenge/block)
-3. Add red-team benchmark suite with leak-rate and utility metrics
-4. Add key rotation + external KMS integration for vault keys
-5. Add retrieval-safe memory policies for multi-turn chats
+1. Add real NER model (spaCy/transformer) to replace heuristic contextual detection
+2. Tune scoring with calibrated thresholds from empirical benchmark datasets
+3. Add key rotation + external KMS integration for vault keys
+4. Add retrieval-safe memory policies for multi-turn chats
+5. Add evaluator comparing utility impact vs baseline redaction systems

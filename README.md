@@ -174,6 +174,10 @@ curl -X POST http://localhost:5000/sanitize -H 'Content-Type: application/json' 
 
 ```bash
 curl -X POST http://localhost:5000/generate -H 'Content-Type: application/json' -d '{"prompt":"Ali from KL, phone 012-3456789, email ali@example.com"}'
+# Response can be:
+# - {"status":"ok", ...}       -> forwarded to LLM
+# - {"status":"challenge", ...} -> medium-risk, requires review
+# - {"status":"denied", ...}    -> high-risk blocked by policy engine
 ```
 
 4. (Admin only) Detokenize for legal/audit workflows:
@@ -194,6 +198,12 @@ curl -H 'Authorization: Bearer <token>' http://localhost:5000/audit/summary
 6. Dashboard (passes token via query):
 
 Open in browser: `http://localhost:5000/audit/dashboard?token=<token>`
+
+7. Run adversarial privacy benchmark (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' http://localhost:5000/privacy/benchmark
+```
 
 ---
 
