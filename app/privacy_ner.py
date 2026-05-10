@@ -72,6 +72,19 @@ def _load_spacy_model() -> Tuple[bool, str]:
         _SPACY_READY = False
         return False, requested_model
 
+    try:
+        import spacy  # type: ignore
+
+        _SPACY_MODEL = spacy.load(requested_model)
+        _SPACY_MODEL_NAME = requested_model
+        _SPACY_READY = True
+        return True, requested_model
+    except Exception:
+        _SPACY_READY = False
+        _SPACY_MODEL = None
+        _SPACY_MODEL_NAME = requested_model
+        return False, requested_model
+
 
 def _load_transformer_pipeline() -> Tuple[bool, str]:
     """Lazy-load transformer NER pipeline if installed."""
@@ -100,19 +113,6 @@ def _load_transformer_pipeline() -> Tuple[bool, str]:
         _TRANSFORMER_READY = False
         _TRANSFORMER_PIPELINE = None
         _TRANSFORMER_MODEL_NAME = requested_model
-        return False, requested_model
-
-    try:
-        import spacy  # type: ignore
-
-        _SPACY_MODEL = spacy.load(requested_model)
-        _SPACY_MODEL_NAME = requested_model
-        _SPACY_READY = True
-        return True, requested_model
-    except Exception:
-        _SPACY_READY = False
-        _SPACY_MODEL = None
-        _SPACY_MODEL_NAME = requested_model
         return False, requested_model
 
 
