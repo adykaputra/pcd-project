@@ -1,6 +1,7 @@
 """PII redaction logic for Module 2 (Privacy Shield) - Redaction Reliability Comparison System."""
 import re
 from typing import Dict, Tuple, Any
+from app.privacy_vault import get_vault
 
 # Compile regex patterns for Tool A (Advanced Regex)
 # Match Malaysian IC numbers (YYMMDD-XX-XXXX) with or without dashes and validate month (01-12) and day (01-31)
@@ -19,6 +20,8 @@ COMMON_LOCATIONS = {
     'kelantan', 'pahang', 'perlis', 'sabah', 'sarawak', 'putrajaya', 'labuan', 'kl', 'jb',
     'malaysia', 'ampang', 'petaling jaya', 'subang', 'klang', 'shah alam'
 }
+
+TOKEN_RE = re.compile(r"\[(?:ID|PHONE|EMAIL|NAME|LOCATION)_[A-F0-9]{12}\]")
 
 
 def _tool_a_regex_redaction(text: str) -> Tuple[str, Dict[str, int]]:
@@ -183,6 +186,109 @@ def sanitize_prompt_for_llm(text: str) -> Dict[str, Any]:
             "B": counts_b,
             "C": counts_c,
         },
+    }
+
+
+def _tokenize_regex(text: str, pattern: re.Pattern, pii_type: str) -> Tuple[str, int]:
+    """Replace regex matches with deterministic vault-backed pseudonym tokens."""
+    vault = get_vault()
+    count = 0
+
+    def _replace(match: re.Match) -> str:
+        nonlocal count
+        # Avoid re-tokenizing already tokenized values.
+        value = match.group(0)
+        if TOKEN_RE.fullmatch(value):
+            return value
+        count += 1
+        return vault.get_or_create_token(value=value, pii_type=pii_type).token
+
+    return pattern.sub(_replace, text), count
+
+
+def _tokenize_dictionary_terms(text: str, terms: set, pii_type: str) -> Tuple[str, int]:
+    """Replace dictionary terms (case-insensitive) with vault-backed tokens."""
+    vault = get_vault()
+    redacted = text
+    count = 0
+
+    # Longest-first prevents shorter terms from partially masking longer ones.
+    for term in sorted(terms, key=len, reverse=True):
+        pattern = re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)
+
+        def _replace(match: re.Match) -> str:
+            nonlocal count
+            value = match.group(0)
+            if TOKEN_RE.fullmatch(value):
+                return value
+            count += 1
+            return vault.get_or_create_token(value=value, pii_type=pii_type).token
+
+        redacted = pattern.sub(_replace, redacted)
+
+    return redacted, count
+
+
+def tokenize_prompt_for_llm(text: str) -> Dict[str, Any]:
+    """Convert detected PII into stable vault tokens before LLM dispatch.
+
+    Example:
+        "Email ali@example.com" -> "Email [EMAIL_ABC123...]"
+    """
+    if not text:
+        return {
+            "tokenized_prompt": text,
+            "had_pii": False,
+            "token_counts": {"id": 0, "phone": 0, "email": 0, "name": 0, "location": 0},
+            "remaining_pii_counts": {"id": 0, "phone": 0, "email": 0},
+        }
+
+    tokenized = text
+    tokenized, count_id = _tokenize_regex(tokenized, MALAYSIAN_IC_RE, "id")
+    tokenized, count_phone = _tokenize_regex(tokenized, PHONE_RE, "phone")
+    tokenized, count_email = _tokenize_regex(tokenized, EMAIL_RE, "email")
+    tokenized, count_name = _tokenize_dictionary_terms(tokenized, COMMON_NAMES, "name")
+    tokenized, count_location = _tokenize_dictionary_terms(tokenized, COMMON_LOCATIONS, "location")
+
+    remaining = detect_pii_counts(tokenized)
+    return {
+        "tokenized_prompt": tokenized,
+        "had_pii": tokenized != text,
+        "token_counts": {
+            "id": count_id,
+            "phone": count_phone,
+            "email": count_email,
+            "name": count_name,
+            "location": count_location,
+        },
+        "remaining_pii_counts": remaining,
+    }
+
+
+def detokenize_prompt_from_vault(text: str) -> Dict[str, Any]:
+    """Resolve vault tokens back to source values (admin workflows only)."""
+    if not text:
+        return {"detokenized_text": text, "resolved_tokens": 0, "unresolved_tokens": []}
+
+    vault = get_vault()
+    unresolved = []
+    resolved_count = 0
+
+    def _replace(match: re.Match) -> str:
+        nonlocal resolved_count
+        token = match.group(0)
+        value = vault.resolve_token(token)
+        if value is None:
+            unresolved.append(token)
+            return token
+        resolved_count += 1
+        return value
+
+    detokenized = TOKEN_RE.sub(_replace, text)
+    return {
+        "detokenized_text": detokenized,
+        "resolved_tokens": resolved_count,
+        "unresolved_tokens": unresolved,
     }
 
 

@@ -77,6 +77,7 @@ DASHBOARD_HTML = """
     </table>
 
     <h2>📊 Jury Tool Reliability Summary</h2>
+    <p><strong>Chart:</strong> Reliability comparison table for Tool A/B/C detections.</p>
     <table>
         <thead>
             <tr>

@@ -102,6 +102,9 @@ class AuditManager:
         count_id, count_email, count_phone, forbidden_intents, metadata (dict),
         winning_tool, tool_a_counts, tool_b_counts, tool_c_counts (optional)
         """
+        # Defensive init keeps tests and runtime resilient if DB file is recreated.
+        self._init_db()
+
         # Build canonical payload for signing
         payload = {
             "ts": event.get("ts", datetime.utcnow()),
@@ -155,6 +158,7 @@ class AuditManager:
 
     def verify_integrity(self, since: Optional[datetime] = None) -> Dict[str, Any]:
         """Verify HMAC signatures for audit events. Returns a dict with integrity_ok and tampered ids."""
+        self._init_db()
         conn = self._connect()
         cur = conn.cursor()
         cur.execute("SELECT id, ts, event_type, request_id, user_role, endpoint, message, count_id, count_email, count_phone, forbidden_intents, metadata, signature FROM audit_events")
@@ -186,6 +190,7 @@ class AuditManager:
 
     def summary(self, since: Optional[datetime] = None) -> Dict[str, Any]:
         since = since or (datetime.utcnow() - timedelta(days=1))
+        self._init_db()
         conn = self._connect()
         cur = conn.cursor()
 
@@ -196,10 +201,15 @@ class AuditManager:
         )
         total_blocked = cur.fetchone()[0]
 
-        # Sum PII counts (PII_REDACTED)
+        # Sum PII counts across both legacy and jury redaction events.
         cur.execute(
-            "SELECT SUM(count_id) as ids, SUM(count_email) as emails FROM audit_events WHERE event_type = ? AND ts >= ?",
-            ("PII_REDACTED", since),
+            """
+            SELECT SUM(count_id) as ids, SUM(count_email) as emails
+            FROM audit_events
+            WHERE event_type IN (?, ?)
+              AND ts >= ?
+            """,
+            ("PII_REDACTED", "PII_REDACTED_JURY", since),
         )
         row = cur.fetchone()
         ids = row[0] or 0
@@ -251,7 +261,7 @@ import hashlib
 
 
 class AuditHandler(logging.Handler):
-    PRIORITY_EVENTS = {"SECURITY_DENIED", "PII_REDACTED", "LLM_TOKEN_USAGE"}
+    PRIORITY_EVENTS = {"SECURITY_DENIED", "PII_REDACTED", "PII_TOKENIZED", "PII_DETOKENIZED", "LLM_TOKEN_USAGE"}
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
