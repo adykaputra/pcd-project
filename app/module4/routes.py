@@ -47,7 +47,8 @@ def summary():
 def dashboard():
     # Dashboard optionally takes a token query param for the frontend to call /audit/summary
     from .dashboard import render_dashboard
-    import sqlite3
+    from app.privacy_benchmark import run_privacy_benchmark
+    from app.privacy_calibration import calibrate_policy_thresholds
     
     # Fetch recent audit logs to display
     mgr = get_manager()
@@ -85,7 +86,9 @@ def dashboard():
             'signature': row[14],
         })
     
-    return render_dashboard(logs=logs), 200
+    benchmark = run_privacy_benchmark()
+    calibration = calibrate_policy_thresholds()
+    return render_dashboard(logs=logs, benchmark=benchmark, calibration=calibration), 200
 
 
 # Immutability note:

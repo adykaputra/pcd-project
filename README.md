@@ -205,6 +205,21 @@ Open in browser: `http://localhost:5000/audit/dashboard?token=<token>`
 curl -H 'Authorization: Bearer <token>' http://localhost:5000/privacy/benchmark
 ```
 
+8. Get policy threshold calibration recommendation (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' http://localhost:5000/privacy/calibrate
+```
+
+9. Optional: enable spaCy NER backend (Phase 3):
+
+```bash
+pip install spacy
+python -m spacy download en_core_web_sm
+export PRIVACY_NER_BACKEND=spacy
+export PRIVACY_NER_MODEL=en_core_web_sm
+```
+
 ---
 
 ## License

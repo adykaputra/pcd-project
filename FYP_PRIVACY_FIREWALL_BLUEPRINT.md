@@ -11,6 +11,8 @@ This project is no longer just a "redaction script." It is now an **LLM Privacy 
 5. Allows controlled admin-only detokenization for legal/audit workflows
 6. Applies a risk/confidence policy engine before model forwarding
 7. Exposes an adversarial benchmark endpoint for measurable privacy evaluation
+8. Supports pluggable NER detection (spaCy when available + fallback rules)
+9. Calibrates policy thresholds using benchmark-driven objective search
 
 ---
 
@@ -45,6 +47,7 @@ The mapping is deterministic (same input -> same token) for context continuity, 
 4. Send tokenized prompt to LLM adapter
 5. Record auditable security events and tokenization counts
 6. Evaluate risk score + confidence and apply policy action (`allow` / `challenge` / `block`)
+7. Capture NER detector metadata (`backend`, entity counts) for explainability
 
 ### `/detokenize` flow (admin-only)
 
@@ -59,6 +62,12 @@ The mapping is deterministic (same input -> same token) for context continuity, 
 2. Measure leak-rate, utility proxy score, latency, and policy-action distribution
 3. Return per-case traces for explainable demo and validation
 
+### `/privacy/calibrate` flow (admin-only)
+
+1. Run a threshold grid search over challenge/block boundaries
+2. Minimize action-mismatch objective vs benchmark expected actions
+3. Return recommended thresholds + per-case evaluation traces
+
 ---
 
 ## Novelty and FYP Value
@@ -72,6 +81,8 @@ This architecture contributes beyond common coursework by combining:
 - **Tamper-evident audit logging**
 - **Risk-based policy enforcement with confidence scoring**
 - **Red-team style benchmark metrics**
+- **NER-enhanced contextual detection with backend abstraction**
+- **Benchmark-driven threshold calibration**
 
 This gives a strong "systems + security + AI" story for viva/demo.
 
@@ -89,8 +100,8 @@ This gives a strong "systems + security + AI" story for viva/demo.
 
 ## Next Upgrades to Reach "Research-Grade"
 
-1. Add real NER model (spaCy/transformer) to replace heuristic contextual detection
-2. Tune scoring with calibrated thresholds from empirical benchmark datasets
+1. Add transformer NER backend (e.g. multilingual DeBERTa) alongside spaCy
+2. Add benchmark dataset versioning and cross-validation splits
 3. Add key rotation + external KMS integration for vault keys
 4. Add retrieval-safe memory policies for multi-turn chats
 5. Add evaluator comparing utility impact vs baseline redaction systems

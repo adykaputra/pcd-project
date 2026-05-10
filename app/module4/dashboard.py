@@ -20,6 +20,12 @@ DASHBOARD_HTML = """
         .metric { display: inline-block; margin-right: 20px; }
         .metric-label { color: #666; font-size: 0.9em; }
         .metric-value { font-size: 1.4em; font-weight: bold; color: #007bff; }
+        .bar-wrap { background: #e9ecef; border-radius: 8px; height: 16px; width: 220px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
+        .bar { height: 100%; }
+        .bar-allow { background: #28a745; }
+        .bar-challenge { background: #ffc107; }
+        .bar-block { background: #dc3545; }
+        .small-muted { color: #666; font-size: 0.9em; }
     </style>
 </head>
 <body>
@@ -123,12 +129,77 @@ DASHBOARD_HTML = """
             {% endfor %}
         </tbody>
     </table>
+
+    {% if benchmark %}
+    <h2>📈 Phase 3 Privacy Benchmark Chart</h2>
+    <p class="small-muted">Adversarial benchmark on explicit/obfuscated PII prompts.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Metric</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Total Cases</td><td>{{ benchmark.metrics.total_cases }}</td></tr>
+            <tr><td>PII Cases</td><td>{{ benchmark.metrics.pii_cases }}</td></tr>
+            <tr><td>Leak Rate</td><td>{{ benchmark.metrics.core_pii_leak_rate }}</td></tr>
+            <tr><td>Avg Utility Score</td><td>{{ benchmark.metrics.avg_utility_score }}</td></tr>
+            <tr><td>Avg Latency (ms)</td><td>{{ benchmark.metrics.avg_latency_ms }}</td></tr>
+        </tbody>
+    </table>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Policy Action</th>
+                <th>Distribution</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set total_actions = benchmark.metrics.total_cases if benchmark.metrics.total_cases else 1 %}
+            {% for item in benchmark.visualization.policy_action_chart %}
+            {% set pct = ((item.value / total_actions) * 100) | round(1) %}
+            <tr>
+                <td>{{ item.label }}</td>
+                <td>
+                    <span class="bar-wrap">
+                        <span class="bar bar-{{ item.label }}" style="width: {{ pct }}%;"></span>
+                    </span>
+                    {{ item.value }} ({{ pct }}%)
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if calibration %}
+    <h2>🎛️ Policy Threshold Calibration</h2>
+    <p class="small-muted">Suggested thresholds derived from benchmark alignment objective.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Challenge Threshold</th>
+                <th>Block Threshold</th>
+                <th>Objective Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ calibration.challenge_threshold }}</td>
+                <td>{{ calibration.block_threshold }}</td>
+                <td>{{ calibration.objective_cost }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% endif %}
 </body>
 </html>
 """
 
 
-def render_dashboard(logs=None):
+def render_dashboard(logs=None, benchmark=None, calibration=None):
     if logs is None:
         logs = []
     
@@ -143,4 +214,4 @@ def render_dashboard(logs=None):
             except:
                 log[f'{key}_parsed'] = {}
     
-    return render_template_string(DASHBOARD_HTML, logs=logs)
+    return render_template_string(DASHBOARD_HTML, logs=logs, benchmark=benchmark, calibration=calibration)

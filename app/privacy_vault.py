@@ -25,6 +25,7 @@ TOKEN_PREFIX = {
     "email": "EMAIL",
     "name": "NAME",
     "location": "LOCATION",
+    "organization": "ORG",
 }
 
 
@@ -75,7 +76,7 @@ class PIIVault:
         text = (value or "").strip()
         if pii_type in {"id", "phone"}:
             return "".join(ch for ch in text if ch.isdigit())
-        if pii_type in {"email", "name", "location"}:
+        if pii_type in {"email", "name", "location", "organization"}:
             return text.lower()
         return text
 

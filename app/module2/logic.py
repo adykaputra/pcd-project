@@ -2,6 +2,7 @@
 import re
 from typing import Dict, Tuple, Any
 from app.privacy_vault import get_vault
+from app.privacy_ner import detect_named_entities
 
 # Compile regex patterns for Tool A (Advanced Regex)
 # Match Malaysian IC numbers (YYMMDD-XX-XXXX) with or without dashes and validate month (01-12) and day (01-31)
@@ -21,7 +22,7 @@ COMMON_LOCATIONS = {
     'malaysia', 'ampang', 'petaling jaya', 'subang', 'klang', 'shah alam'
 }
 
-TOKEN_RE = re.compile(r"\[(?:ID|PHONE|EMAIL|NAME|LOCATION)_[A-F0-9]{12}\]")
+TOKEN_RE = re.compile(r"\[(?:ID|PHONE|EMAIL|NAME|LOCATION|ORG)_[A-F0-9]{12}\]")
 
 
 def _tool_a_regex_redaction(text: str) -> Tuple[str, Dict[str, int]]:
@@ -229,6 +230,59 @@ def _tokenize_dictionary_terms(text: str, terms: set, pii_type: str) -> Tuple[st
     return redacted, count
 
 
+def _tokenize_ner_entities(text: str, entities: list) -> Tuple[str, Dict[str, int]]:
+    """Apply vault tokenization using NER-detected entities."""
+    vault = get_vault()
+    redacted = text
+    counts = {"person": 0, "location": 0, "organization": 0}
+
+    label_to_type = {
+        "PERSON": "name",
+        "PER": "name",
+        "GPE": "location",
+        "LOC": "location",
+        "LOCATION": "location",
+        "ORG": "organization",
+        "ORGANIZATION": "organization",
+    }
+
+    # Longest-first replacement avoids partial matches when entities overlap in text.
+    sorted_entities = sorted(
+        [e for e in entities if e.get("label") in label_to_type and e.get("text")],
+        key=lambda e: len(e.get("text", "")),
+        reverse=True,
+    )
+
+    for entity in sorted_entities:
+        label = str(entity.get("label", "")).upper()
+        pii_type = label_to_type.get(label)
+        if not pii_type:
+            continue
+        raw = str(entity.get("text", "")).strip()
+        if not raw:
+            continue
+        replacement = vault.get_or_create_token(value=raw, pii_type=pii_type).token
+        pattern = re.compile(r"\b" + re.escape(raw) + r"\b", re.IGNORECASE)
+
+        def _replace(match: re.Match) -> str:
+            candidate = match.group(0)
+            if TOKEN_RE.fullmatch(candidate):
+                return candidate
+            return replacement
+
+        updated, n = pattern.subn(_replace, redacted)
+        if n > 0:
+            redacted = updated
+            if pii_type == "name":
+                counts["person"] += n
+            elif pii_type == "location":
+                counts["location"] += n
+            elif pii_type == "organization":
+                counts["organization"] += n
+
+    return redacted, counts
+
+
 def tokenize_prompt_for_llm(text: str) -> Dict[str, Any]:
     """Convert detected PII into stable vault tokens before LLM dispatch.
 
@@ -239,8 +293,19 @@ def tokenize_prompt_for_llm(text: str) -> Dict[str, Any]:
         return {
             "tokenized_prompt": text,
             "had_pii": False,
-            "token_counts": {"id": 0, "phone": 0, "email": 0, "name": 0, "location": 0},
+            "token_counts": {
+                "id": 0,
+                "phone": 0,
+                "email": 0,
+                "name": 0,
+                "location": 0,
+                "ner_person": 0,
+                "ner_location": 0,
+                "ner_organization": 0,
+            },
             "remaining_pii_counts": {"id": 0, "phone": 0, "email": 0},
+            "ner_backend": "none",
+            "ner_entities_detected": 0,
         }
 
     tokenized = text
@@ -249,6 +314,8 @@ def tokenize_prompt_for_llm(text: str) -> Dict[str, Any]:
     tokenized, count_email = _tokenize_regex(tokenized, EMAIL_RE, "email")
     tokenized, count_name = _tokenize_dictionary_terms(tokenized, COMMON_NAMES, "name")
     tokenized, count_location = _tokenize_dictionary_terms(tokenized, COMMON_LOCATIONS, "location")
+    ner_result = detect_named_entities(text)
+    tokenized, ner_counts = _tokenize_ner_entities(tokenized, ner_result.get("entities", []))
 
     remaining = detect_pii_counts(tokenized)
     return {
@@ -260,8 +327,13 @@ def tokenize_prompt_for_llm(text: str) -> Dict[str, Any]:
             "email": count_email,
             "name": count_name,
             "location": count_location,
+            "ner_person": ner_counts.get("person", 0),
+            "ner_location": ner_counts.get("location", 0),
+            "ner_organization": ner_counts.get("organization", 0),
         },
         "remaining_pii_counts": remaining,
+        "ner_backend": ner_result.get("backend"),
+        "ner_entities_detected": len(ner_result.get("entities", [])),
     }
 
 

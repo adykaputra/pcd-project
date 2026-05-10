@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify, current_app
 from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_vault
 from app.privacy_risk import evaluate_prompt_risk
 from app.privacy_benchmark import run_privacy_benchmark
+from app.privacy_calibration import calibrate_policy_thresholds
 
 bp = Blueprint('module3', __name__)
 
@@ -36,6 +37,8 @@ def generate():
       - Always run vault tokenization before forwarding to the LLM.
       - Reject requests if core PII patterns still remain after tokenization.
       - Run risk policy engine (allow/challenge/block) before LLM forwarding.
+      - Optional threshold overrides via payload fields:
+          `policy_challenge_threshold`, `policy_block_threshold`.
       - Forward only tokenized prompt to the LLM backend.
       - Return the model response.
     """
@@ -66,10 +69,19 @@ def generate():
         )
         return jsonify({"status": "denied", "message": "Request contains PII after sanitization. Aborting."}), 400
 
+    challenge_override = data.get("policy_challenge_threshold")
+    block_override = data.get("policy_block_threshold")
+    if challenge_override is not None and not isinstance(challenge_override, int):
+        return jsonify({"status": "denied", "message": "policy_challenge_threshold must be integer"}), 400
+    if block_override is not None and not isinstance(block_override, int):
+        return jsonify({"status": "denied", "message": "policy_block_threshold must be integer"}), 400
+
     risk = evaluate_prompt_risk(
         original_prompt=inbound_prompt,
         tokenization=tokenization,
         tokenized_prompt=tokenized_prompt,
+        challenge_threshold=challenge_override,
+        block_threshold=block_override,
     )
     if risk["policy_action"] == "block":
         from flask import g
@@ -162,6 +174,8 @@ def generate():
         "tokenization": {
             "applied": tokenization["had_pii"],
             "token_counts": tokenization["token_counts"],
+            "ner_backend": tokenization.get("ner_backend"),
+            "ner_entities_detected": tokenization.get("ner_entities_detected"),
         },
         "risk_assessment": risk,
     }), 200
@@ -202,3 +216,13 @@ def privacy_benchmark():
         return jsonify({"status": "denied", "message": "Admin role required"}), 403
     results = run_privacy_benchmark()
     return jsonify({"status": "ok", "benchmark": results}), 200
+
+
+@bp.route('/privacy/calibrate', methods=['GET'])
+def privacy_calibrate():
+    """Admin-only threshold calibration endpoint for policy tuning."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+
+    recommendation = calibrate_policy_thresholds()
+    return jsonify({"status": "ok", "calibration": recommendation}), 200
