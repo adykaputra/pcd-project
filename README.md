@@ -199,6 +199,10 @@ curl -H 'Authorization: Bearer <token>' http://localhost:5000/audit/summary
 
 Open in browser: `http://localhost:5000/audit/dashboard?token=<token>`
 
+7. High-fidelity prototype landing page:
+
+Open in browser: `http://localhost:5000/`
+
 7. Run adversarial privacy benchmark (admin only):
 
 ```bash

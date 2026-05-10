@@ -108,6 +108,7 @@ def dashboard():
         policy_thresholds=get_policy_thresholds(),
         dataset_version=dataset_version,
         available_dataset_versions=list_dataset_versions(),
+        initial_token=request.args.get("token"),
     ), 200
 
 

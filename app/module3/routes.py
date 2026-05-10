@@ -1,6 +1,6 @@
 import os
 import jwt
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, redirect, url_for
 from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_vault
 from app.privacy_risk import evaluate_prompt_risk
 from app.privacy_benchmark import run_privacy_benchmark, run_privacy_benchmark_cross_split
@@ -11,6 +11,12 @@ from app.privacy_benchmark_history import get_benchmark_history_manager
 from app.privacy_benchmark_dataset import list_dataset_versions
 
 bp = Blueprint('module3', __name__)
+
+
+@bp.route('/', methods=['GET'])
+def landing():
+    """Convenience landing route for the high-fidelity prototype."""
+    return redirect(url_for("module4.dashboard"))
 
 
 def _is_admin_request(req) -> bool:
