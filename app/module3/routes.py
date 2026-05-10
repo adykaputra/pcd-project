@@ -2,6 +2,8 @@ import os
 import jwt
 from flask import Blueprint, request, jsonify, current_app
 from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_vault
+from app.privacy_risk import evaluate_prompt_risk
+from app.privacy_benchmark import run_privacy_benchmark
 
 bp = Blueprint('module3', __name__)
 
@@ -33,6 +35,7 @@ def generate():
       - Accept `prompt` (preferred) or `sanitized_prompt` (legacy).
       - Always run vault tokenization before forwarding to the LLM.
       - Reject requests if core PII patterns still remain after tokenization.
+      - Run risk policy engine (allow/challenge/block) before LLM forwarding.
       - Forward only tokenized prompt to the LLM backend.
       - Return the model response.
     """
@@ -62,6 +65,46 @@ def generate():
             },
         )
         return jsonify({"status": "denied", "message": "Request contains PII after sanitization. Aborting."}), 400
+
+    risk = evaluate_prompt_risk(
+        original_prompt=inbound_prompt,
+        tokenization=tokenization,
+        tokenized_prompt=tokenized_prompt,
+    )
+    if risk["policy_action"] == "block":
+        from flask import g
+        current_app.logger.warning(
+            "[PRIVACY_FIREWALL] Policy engine blocked high-risk prompt",
+            extra={
+                "event_type": "PRIVACY_POLICY_BLOCK",
+                "request_id": getattr(g, "request_id", None),
+                "user_role": getattr(g, "user_role", None),
+                "endpoint": request.path,
+                "metadata": {"risk": risk},
+            },
+        )
+        return jsonify({
+            "status": "denied",
+            "message": "Prompt blocked by privacy policy engine.",
+            "risk_assessment": risk,
+        }), 403
+    if risk["policy_action"] == "challenge":
+        from flask import g
+        current_app.logger.warning(
+            "[PRIVACY_FIREWALL] Policy engine challenged medium-risk prompt",
+            extra={
+                "event_type": "PRIVACY_POLICY_CHALLENGE",
+                "request_id": getattr(g, "request_id", None),
+                "user_role": getattr(g, "user_role", None),
+                "endpoint": request.path,
+                "metadata": {"risk": risk},
+            },
+        )
+        return jsonify({
+            "status": "challenge",
+            "message": "Prompt requires human review before LLM forwarding.",
+            "risk_assessment": risk,
+        }), 409
 
     provider = data.get('provider', 'openai')
     model = data.get('model', None)
@@ -120,6 +163,7 @@ def generate():
             "applied": tokenization["had_pii"],
             "token_counts": tokenization["token_counts"],
         },
+        "risk_assessment": risk,
     }), 200
 
 
@@ -149,3 +193,12 @@ def detokenize():
         },
     )
     return jsonify({"status": "ok", **result}), 200
+
+
+@bp.route('/privacy/benchmark', methods=['GET'])
+def privacy_benchmark():
+    """Admin-only benchmark endpoint for adversarial privacy evaluation."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+    results = run_privacy_benchmark()
+    return jsonify({"status": "ok", "benchmark": results}), 200

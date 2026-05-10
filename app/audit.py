@@ -232,12 +232,31 @@ class AuditManager:
         # Sort intents by frequency
         frequent_intents = sorted(intent_counts.items(), key=lambda x: x[1], reverse=True)
 
+        cur.execute(
+            """
+            SELECT event_type, COUNT(*) as c
+            FROM audit_events
+            WHERE event_type IN (?, ?)
+              AND ts >= ?
+            GROUP BY event_type
+            """,
+            ("PRIVACY_POLICY_BLOCK", "PRIVACY_POLICY_CHALLENGE", since),
+        )
+        policy_rows = cur.fetchall()
+        policy_counts = {"block": 0, "challenge": 0}
+        for row in policy_rows:
+            if row[0] == "PRIVACY_POLICY_BLOCK":
+                policy_counts["block"] = row[1]
+            elif row[0] == "PRIVACY_POLICY_CHALLENGE":
+                policy_counts["challenge"] = row[1]
+
         conn.close()
 
         return {
             "total_blocked_last_24h": total_blocked,
             "pii_redacted_last_24h": {"malaysian_ic": ids, "emails": emails},
             "frequent_forbidden_intents": frequent_intents,
+            "privacy_policy_actions_last_24h": policy_counts,
         }
 
 
@@ -261,7 +280,15 @@ import hashlib
 
 
 class AuditHandler(logging.Handler):
-    PRIORITY_EVENTS = {"SECURITY_DENIED", "PII_REDACTED", "PII_TOKENIZED", "PII_DETOKENIZED", "LLM_TOKEN_USAGE"}
+    PRIORITY_EVENTS = {
+        "SECURITY_DENIED",
+        "PII_REDACTED",
+        "PII_TOKENIZED",
+        "PII_DETOKENIZED",
+        "PRIVACY_POLICY_BLOCK",
+        "PRIVACY_POLICY_CHALLENGE",
+        "LLM_TOKEN_USAGE",
+    }
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
