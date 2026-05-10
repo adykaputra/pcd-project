@@ -37,10 +37,24 @@ class BenchmarkHistoryManager:
                 allow_count INTEGER NOT NULL,
                 challenge_count INTEGER NOT NULL,
                 block_count INTEGER NOT NULL,
+                dataset_version TEXT,
+                dataset_split TEXT,
                 payload TEXT NOT NULL
             )
             """
         )
+        cur.execute("PRAGMA table_info(benchmark_runs)")
+        cols = [r[1] for r in cur.fetchall()]
+        if "dataset_version" not in cols:
+            try:
+                cur.execute("ALTER TABLE benchmark_runs ADD COLUMN dataset_version TEXT")
+            except Exception:
+                pass
+        if "dataset_split" not in cols:
+            try:
+                cur.execute("ALTER TABLE benchmark_runs ADD COLUMN dataset_split TEXT")
+            except Exception:
+                pass
         conn.commit()
         conn.close()
 
@@ -54,9 +68,9 @@ class BenchmarkHistoryManager:
             """
             INSERT INTO benchmark_runs (
                 ts, total_cases, leak_rate, utility_score, latency_ms,
-                allow_count, challenge_count, block_count, payload
+                allow_count, challenge_count, block_count, dataset_version, dataset_split, payload
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 datetime.utcnow(),
@@ -67,6 +81,8 @@ class BenchmarkHistoryManager:
                 int(policy_counts.get("allow", 0)),
                 int(policy_counts.get("challenge", 0)),
                 int(policy_counts.get("block", 0)),
+                str(metrics.get("dataset_version") or "unknown"),
+                str(metrics.get("split") or "all"),
                 json.dumps(benchmark),
             ),
         )
@@ -81,7 +97,7 @@ class BenchmarkHistoryManager:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, ts, total_cases, leak_rate, utility_score, latency_ms, allow_count, challenge_count, block_count
+            SELECT id, ts, total_cases, leak_rate, utility_score, latency_ms, allow_count, challenge_count, block_count, dataset_version, dataset_split
             FROM benchmark_runs
             ORDER BY ts DESC
             LIMIT ?
@@ -101,6 +117,8 @@ class BenchmarkHistoryManager:
                 "allow_count": int(row["allow_count"]),
                 "challenge_count": int(row["challenge_count"]),
                 "block_count": int(row["block_count"]),
+                "dataset_version": row["dataset_version"] or "unknown",
+                "dataset_split": row["dataset_split"] or "all",
             }
             for row in rows
         ]

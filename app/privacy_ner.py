@@ -33,6 +33,14 @@ KNOWN_NAMES = {
     "michael",
     "sarah",
     "amanda",
+    "abdul",
+    "azman",
+    "syafiq",
+    "noraini",
+    "zul",
+    "farah",
+    "hafiz",
+    "aisyah",
 }
 
 KNOWN_LOCATIONS = {
@@ -54,10 +62,19 @@ KNOWN_LOCATIONS = {
     "petaling jaya",
     "shah alam",
     "malaysia",
+    "kuching",
+    "georgetown",
+    "kota kinabalu",
 }
 
 TITLE_CASE_NAME_RE = re.compile(r"\b([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){1,2})\b")
 ORG_HINT_RE = re.compile(r"\b([A-Z][A-Za-z0-9& ]{2,}\s(?:Sdn Bhd|Berhad|Corp|Inc|Ltd|Bank))\b")
+MALAY_HONORIFIC_RE = re.compile(
+    r"\b(?:Encik|Puan|Cik|Tuan)\s+([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?)\b"
+)
+MALAY_LOCATION_PHRASE_RE = re.compile(
+    r"\b(?:di|dari)\s+([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){0,2})\b"
+)
 
 
 def _load_spacy_model() -> Tuple[bool, str]:
@@ -262,6 +279,33 @@ def _detect_with_fallback(text: str) -> Dict[str, Any]:
                 "end": match.end(1),
                 "confidence": 0.63,
                 "source": "fallback-org-hint",
+            }
+        )
+
+    for match in MALAY_HONORIFIC_RE.finditer(text):
+        entities.append(
+            {
+                "text": match.group(1),
+                "label": "PERSON",
+                "start": match.start(1),
+                "end": match.end(1),
+                "confidence": 0.74,
+                "source": "fallback-malay-honorific",
+            }
+        )
+
+    for match in MALAY_LOCATION_PHRASE_RE.finditer(text):
+        candidate = match.group(1).strip()
+        if candidate.lower() in {"saya", "anda", "kami"}:
+            continue
+        entities.append(
+            {
+                "text": candidate,
+                "label": "GPE",
+                "start": match.start(1),
+                "end": match.end(1),
+                "confidence": 0.6,
+                "source": "fallback-malay-location",
             }
         )
 

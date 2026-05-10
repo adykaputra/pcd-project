@@ -133,6 +133,9 @@ DASHBOARD_HTML = """
     {% if benchmark %}
     <h2>📈 Phase 3/4 Privacy Benchmark Chart</h2>
     <p class="small-muted">Adversarial benchmark on explicit/obfuscated PII prompts.</p>
+    <p class="small-muted">Dataset version: <strong>{{ dataset_version or benchmark.metrics.dataset_version }}</strong>
+    {% if available_dataset_versions %}(available: {{ available_dataset_versions | join(', ') }}){% endif %}
+    </p>
     <table>
         <thead>
             <tr>
@@ -243,6 +246,8 @@ DASHBOARD_HTML = """
         <thead>
             <tr>
                 <th>Timestamp</th>
+                <th>Dataset</th>
+                <th>Split</th>
                 <th>Leak Rate</th>
                 <th>Utility</th>
                 <th>Latency (ms)</th>
@@ -253,6 +258,8 @@ DASHBOARD_HTML = """
             {% for run in benchmark_history %}
             <tr>
                 <td>{{ run.ts }}</td>
+                <td>{{ run.dataset_version }}</td>
+                <td>{{ run.dataset_split }}</td>
                 <td>{{ run.leak_rate }}</td>
                 <td>{{ run.utility_score }}</td>
                 <td>{{ run.latency_ms }}</td>
@@ -267,7 +274,7 @@ DASHBOARD_HTML = """
 """
 
 
-def render_dashboard(logs=None, benchmark=None, calibration=None, autotune=None, benchmark_history=None, policy_thresholds=None):
+def render_dashboard(logs=None, benchmark=None, calibration=None, autotune=None, benchmark_history=None, policy_thresholds=None, dataset_version=None, available_dataset_versions=None):
     if logs is None:
         logs = []
     
@@ -290,4 +297,6 @@ def render_dashboard(logs=None, benchmark=None, calibration=None, autotune=None,
         autotune=autotune,
         benchmark_history=benchmark_history or [],
         policy_thresholds=policy_thresholds,
+        dataset_version=dataset_version,
+        available_dataset_versions=available_dataset_versions or [],
     )

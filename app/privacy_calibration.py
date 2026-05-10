@@ -5,7 +5,7 @@ from typing import Dict, Any, Iterable, List, Tuple
 
 from app.module2.logic import tokenize_prompt_for_llm
 from app.privacy_risk import evaluate_prompt_risk
-from app.privacy_benchmark import BENCHMARK_CASES
+from app.privacy_benchmark_dataset import get_benchmark_cases
 
 
 ACTION_ORDER = {"allow": 0, "challenge": 1, "block": 2}
@@ -62,21 +62,29 @@ def _score_thresholds(cases: Iterable[Dict[str, Any]], challenge: int, block: in
 
 
 def calibrate_policy_thresholds(
+    dataset_version: str = "v1",
+    split: str = "validation",
     challenge_range: Tuple[int, int] = (25, 65),
     block_range: Tuple[int, int] = (60, 95),
 ) -> Dict[str, Any]:
     """Search threshold pairs that best align with benchmark expectations."""
+    cases = get_benchmark_cases(version=dataset_version, split=split)
+    if not cases:
+        cases = get_benchmark_cases(version=dataset_version, split="all")
+
     best: Dict[str, Any] = {"cost": float("inf"), "challenge": 45, "block": 80, "rows": []}
     low_c, high_c = challenge_range
     low_b, high_b = block_range
 
     for challenge in range(low_c, high_c + 1):
         for block in range(max(challenge + 5, low_b), high_b + 1):
-            cost, rows = _score_thresholds(BENCHMARK_CASES, challenge, block)
+            cost, rows = _score_thresholds(cases, challenge, block)
             if cost < best["cost"]:
                 best = {"cost": cost, "challenge": challenge, "block": block, "rows": rows}
 
     recommendation = {
+        "dataset_version": dataset_version,
+        "split": split if split in {"train", "validation", "test", "all"} else "all",
         "challenge_threshold": int(best["challenge"]),
         "block_threshold": int(best["block"]),
         "objective_cost": round(float(best["cost"]), 3),

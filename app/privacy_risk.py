@@ -10,14 +10,14 @@ from app.privacy_policy_config import get_policy_thresholds
 
 
 OBFUSCATED_EMAIL_RE = re.compile(
-    r"\b[a-z0-9._%+-]+\s*(?:\(\s*at\s*\)|\[\s*at\s*\]| at )\s*[a-z0-9.-]+\s*(?:\(\s*dot\s*\)|\[\s*dot\s*\]| dot )\s*[a-z]{2,}\b",
+    r"\b[a-z0-9._%+-]+\s*(?:\(\s*at\s*\)|\[\s*at\s*\]| at | di )\s*[a-z0-9.-]+\s*(?:\(\s*dot\s*\)|\[\s*dot\s*\]| dot | titik )\s*[a-z]{2,}\b",
     re.IGNORECASE,
 )
 # Obfuscation patterns intentionally exclude common standard formats (e.g. 012-3456789).
 SPLIT_PHONE_RE = re.compile(r"(?:\d[\s\.]){8,}\d")
 SPLIT_ID_RE = re.compile(r"\b\d{6}[\s/_.]\d{2}[\s/_.]\d{4}\b")
 SENSITIVE_INTENT_RE = re.compile(
-    r"(?:exfiltrate|dump database|steal|leak|other users data|bypass privacy|raw pii)",
+    r"(?:exfiltrate|dump database|steal|leak|other users data|bypass privacy|raw pii|bocor(?:kan)? data|pintas privasi|curi data)",
     re.IGNORECASE,
 )
 

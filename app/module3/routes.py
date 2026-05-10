@@ -3,11 +3,12 @@ import jwt
 from flask import Blueprint, request, jsonify, current_app
 from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_vault
 from app.privacy_risk import evaluate_prompt_risk
-from app.privacy_benchmark import run_privacy_benchmark
+from app.privacy_benchmark import run_privacy_benchmark, run_privacy_benchmark_cross_split
 from app.privacy_calibration import calibrate_policy_thresholds
 from app.privacy_autotune import recommend_thresholds_from_audit
 from app.privacy_policy_config import save_policy_thresholds, get_policy_thresholds
 from app.privacy_benchmark_history import get_benchmark_history_manager
+from app.privacy_benchmark_dataset import list_dataset_versions
 
 bp = Blueprint('module3', __name__)
 
@@ -217,10 +218,21 @@ def privacy_benchmark():
     """Admin-only benchmark endpoint for adversarial privacy evaluation."""
     if not _is_admin_request(request):
         return jsonify({"status": "denied", "message": "Admin role required"}), 403
-    results = run_privacy_benchmark()
+    dataset_version = request.args.get("dataset_version", "v1")
+    split = request.args.get("split", "all")
+    mode = request.args.get("mode", "single").lower()
+
+    try:
+        if mode == "cross_split":
+            results = run_privacy_benchmark_cross_split(dataset_version=dataset_version)
+        else:
+            results = run_privacy_benchmark(dataset_version=dataset_version, split=split)
+    except FileNotFoundError:
+        return jsonify({"status": "denied", "message": f"Unknown benchmark dataset version: {dataset_version}"}), 400
+
     persist = str(request.args.get("persist", "1")).lower() not in {"0", "false", "no"}
     run_id = None
-    if persist:
+    if persist and mode != "cross_split":
         run_id = get_benchmark_history_manager().record_run(results)
     return jsonify({"status": "ok", "benchmark": results, "persisted": persist, "run_id": run_id}), 200
 
@@ -231,7 +243,12 @@ def privacy_calibrate():
     if not _is_admin_request(request):
         return jsonify({"status": "denied", "message": "Admin role required"}), 403
 
-    recommendation = calibrate_policy_thresholds()
+    dataset_version = request.args.get("dataset_version", "v1")
+    split = request.args.get("split", "validation")
+    try:
+        recommendation = calibrate_policy_thresholds(dataset_version=dataset_version, split=split)
+    except FileNotFoundError:
+        return jsonify({"status": "denied", "message": f"Unknown benchmark dataset version: {dataset_version}"}), 400
     return jsonify({"status": "ok", "calibration": recommendation}), 200
 
 
@@ -273,3 +290,11 @@ def privacy_benchmark_history():
     limit = int(request.args.get("limit", 20))
     history = get_benchmark_history_manager().list_runs(limit=limit)
     return jsonify({"status": "ok", "history": history}), 200
+
+
+@bp.route('/privacy/benchmark/datasets', methods=['GET'])
+def privacy_benchmark_datasets():
+    """Admin-only endpoint to list available benchmark dataset versions."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+    return jsonify({"status": "ok", "versions": list_dataset_versions()}), 200

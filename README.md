@@ -240,6 +240,24 @@ curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/autotune?
 curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark/history?limit=20'
 ```
 
+13. List benchmark dataset versions (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark/datasets'
+```
+
+14. Run multilingual benchmark dataset v2 (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark?dataset_version=v2&split=all'
+```
+
+15. Run cross-split evaluation (train/validation/test):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark?dataset_version=v2&mode=cross_split&persist=0'
+```
+
 ---
 
 ## License

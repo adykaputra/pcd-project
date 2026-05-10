@@ -16,6 +16,7 @@ This project is no longer just a "redaction script." It is now an **LLM Privacy 
 10. Adds transformer-NER backend option for richer entity extraction
 11. Auto-tunes thresholds from live audit telemetry
 12. Tracks benchmark history for trend analysis
+13. Supports versioned multilingual benchmark datasets with split-wise evaluation
 
 ---
 
@@ -82,6 +83,12 @@ The mapping is deterministic (same input -> same token) for context continuity, 
 1. Persist benchmark snapshots over time
 2. Retrieve trend history for leak-rate, utility, and latency drift monitoring
 
+### `/privacy/benchmark/datasets` flow (admin-only)
+
+1. Enumerate available benchmark dataset versions (`v1`, `v2`, ...)
+2. Select a dataset version for benchmark/calibration runs
+3. Enable reproducible evaluation across project milestones
+
 ---
 
 ## Novelty and FYP Value
@@ -100,6 +107,7 @@ This architecture contributes beyond common coursework by combining:
 - **Transformer-ready NER backend support**
 - **Audit-telemetry-driven auto-tuning**
 - **Benchmark trend observability**
+- **Versioned multilingual benchmark science**
 
 This gives a strong "systems + security + AI" story for viva/demo.
 
@@ -118,7 +126,7 @@ This gives a strong "systems + security + AI" story for viva/demo.
 ## Next Upgrades to Reach "Research-Grade"
 
 1. Add multilingual transformer NER backend (e.g. XLM-R / DeBERTa-v3) and compare by locale
-2. Add benchmark dataset versioning and cross-validation splits
-3. Add key rotation + external KMS integration for vault keys
-4. Add retrieval-safe memory policies for multi-turn chats
-5. Add evaluator comparing utility impact vs baseline redaction systems
+2. Add key rotation + external KMS integration for vault keys
+3. Add retrieval-safe memory policies for multi-turn chats
+4. Add evaluator comparing utility impact vs baseline redaction systems
+5. Add CI regression gates based on benchmark trend thresholds
