@@ -53,7 +53,7 @@ KNOWN_LOCATIONS = {
     "malaysia",
 }
 
-TITLE_CASE_NAME_RE = re.compile(r"\b([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){0,2})\b")
+TITLE_CASE_NAME_RE = re.compile(r"\b([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){1,2})\b")
 ORG_HINT_RE = re.compile(r"\b([A-Z][A-Za-z0-9& ]{2,}\s(?:Sdn Bhd|Berhad|Corp|Inc|Ltd|Bank))\b")
 
 
@@ -159,15 +159,22 @@ def _detect_with_fallback(text: str) -> Dict[str, Any]:
 
     for match in TITLE_CASE_NAME_RE.finditer(text):
         candidate = match.group(1).strip()
-        if len(candidate.split()) <= 1 and candidate.lower() in {"please", "contact", "email", "phone", "record"}:
+        lower_candidate = candidate.lower()
+        if lower_candidate in KNOWN_LOCATIONS:
+            label = "GPE"
+            confidence = 0.58
+        else:
+            label = "PERSON"
+            confidence = 0.52
+        if lower_candidate in {"please review", "thank you", "hello world"}:
             continue
         entities.append(
             {
                 "text": candidate,
-                "label": "PERSON",
+                "label": label,
                 "start": match.start(1),
                 "end": match.end(1),
-                "confidence": 0.52,
+                "confidence": confidence,
                 "source": "fallback-titlecase",
             }
         )
