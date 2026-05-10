@@ -131,7 +131,7 @@ DASHBOARD_HTML = """
     </table>
 
     {% if benchmark %}
-    <h2>📈 Phase 3 Privacy Benchmark Chart</h2>
+    <h2>📈 Phase 3/4 Privacy Benchmark Chart</h2>
     <p class="small-muted">Adversarial benchmark on explicit/obfuscated PII prompts.</p>
     <table>
         <thead>
@@ -194,12 +194,80 @@ DASHBOARD_HTML = """
         </tbody>
     </table>
     {% endif %}
+
+    {% if autotune %}
+    <h2>🤖 Auto-tuning Recommendation (Audit Telemetry)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Source</th>
+                <th>Samples</th>
+                <th>Suggested Challenge</th>
+                <th>Suggested Block</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ autotune.source }}</td>
+                <td>{{ autotune.sample_count }}</td>
+                <td>{{ autotune.challenge_threshold }}</td>
+                <td>{{ autotune.block_threshold }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if policy_thresholds %}
+    <h2>⚙️ Active Policy Thresholds</h2>
+    <p class="small-muted">Loaded by privacy engine from environment overrides or persisted policy config.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Challenge</th>
+                <th>Block</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ policy_thresholds.challenge_threshold }}</td>
+                <td>{{ policy_thresholds.block_threshold }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if benchmark_history %}
+    <h2>📉 Benchmark Trend History</h2>
+    <p class="small-muted">Most recent benchmark runs, useful for showing trajectory over time.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Leak Rate</th>
+                <th>Utility</th>
+                <th>Latency (ms)</th>
+                <th>Actions (A/C/B)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in benchmark_history %}
+            <tr>
+                <td>{{ run.ts }}</td>
+                <td>{{ run.leak_rate }}</td>
+                <td>{{ run.utility_score }}</td>
+                <td>{{ run.latency_ms }}</td>
+                <td>{{ run.allow_count }}/{{ run.challenge_count }}/{{ run.block_count }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
 </body>
 </html>
 """
 
 
-def render_dashboard(logs=None, benchmark=None, calibration=None):
+def render_dashboard(logs=None, benchmark=None, calibration=None, autotune=None, benchmark_history=None, policy_thresholds=None):
     if logs is None:
         logs = []
     
@@ -214,4 +282,12 @@ def render_dashboard(logs=None, benchmark=None, calibration=None):
             except:
                 log[f'{key}_parsed'] = {}
     
-    return render_template_string(DASHBOARD_HTML, logs=logs, benchmark=benchmark, calibration=calibration)
+    return render_template_string(
+        DASHBOARD_HTML,
+        logs=logs,
+        benchmark=benchmark,
+        calibration=calibration,
+        autotune=autotune,
+        benchmark_history=benchmark_history or [],
+        policy_thresholds=policy_thresholds,
+    )

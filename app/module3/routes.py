@@ -5,6 +5,9 @@ from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_va
 from app.privacy_risk import evaluate_prompt_risk
 from app.privacy_benchmark import run_privacy_benchmark
 from app.privacy_calibration import calibrate_policy_thresholds
+from app.privacy_autotune import recommend_thresholds_from_audit
+from app.privacy_policy_config import save_policy_thresholds, get_policy_thresholds
+from app.privacy_benchmark_history import get_benchmark_history_manager
 
 bp = Blueprint('module3', __name__)
 
@@ -136,7 +139,7 @@ def generate():
                 "email": tokenization["token_counts"].get("email", 0),
                 "phone": tokenization["token_counts"].get("phone", 0),
             },
-            "metadata": {"token_counts": tokenization["token_counts"]},
+            "metadata": {"token_counts": tokenization["token_counts"], "risk_assessment": risk, "risk_score": risk.get("risk_score")},
         },
     )
 
@@ -215,7 +218,11 @@ def privacy_benchmark():
     if not _is_admin_request(request):
         return jsonify({"status": "denied", "message": "Admin role required"}), 403
     results = run_privacy_benchmark()
-    return jsonify({"status": "ok", "benchmark": results}), 200
+    persist = str(request.args.get("persist", "1")).lower() not in {"0", "false", "no"}
+    run_id = None
+    if persist:
+        run_id = get_benchmark_history_manager().record_run(results)
+    return jsonify({"status": "ok", "benchmark": results, "persisted": persist, "run_id": run_id}), 200
 
 
 @bp.route('/privacy/calibrate', methods=['GET'])
@@ -226,3 +233,43 @@ def privacy_calibrate():
 
     recommendation = calibrate_policy_thresholds()
     return jsonify({"status": "ok", "calibration": recommendation}), 200
+
+
+@bp.route('/privacy/autotune', methods=['GET'])
+def privacy_autotune():
+    """Admin-only policy autotune endpoint using live audit telemetry."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+
+    hours = int(request.args.get("hours", 24 * 7))
+    min_samples = int(request.args.get("min_samples", 10))
+    persist = str(request.args.get("persist", "0")).lower() in {"1", "true", "yes"}
+
+    recommendation = recommend_thresholds_from_audit(hours=hours, min_samples=min_samples)
+    persisted_config = None
+    if persist:
+        persisted_config = save_policy_thresholds(
+            challenge_threshold=int(recommendation["challenge_threshold"]),
+            block_threshold=int(recommendation["block_threshold"]),
+            source=f"autotune:{recommendation.get('source', 'unknown')}",
+        )
+
+    return jsonify(
+        {
+            "status": "ok",
+            "recommendation": recommendation,
+            "current_thresholds": get_policy_thresholds(),
+            "persisted_config": persisted_config,
+        }
+    ), 200
+
+
+@bp.route('/privacy/benchmark/history', methods=['GET'])
+def privacy_benchmark_history():
+    """Admin-only benchmark history endpoint for trend visualization."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+
+    limit = int(request.args.get("limit", 20))
+    history = get_benchmark_history_manager().list_runs(limit=limit)
+    return jsonify({"status": "ok", "history": history}), 200

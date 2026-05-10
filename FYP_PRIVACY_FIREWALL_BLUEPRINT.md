@@ -13,6 +13,9 @@ This project is no longer just a "redaction script." It is now an **LLM Privacy 
 7. Exposes an adversarial benchmark endpoint for measurable privacy evaluation
 8. Supports pluggable NER detection (spaCy when available + fallback rules)
 9. Calibrates policy thresholds using benchmark-driven objective search
+10. Adds transformer-NER backend option for richer entity extraction
+11. Auto-tunes thresholds from live audit telemetry
+12. Tracks benchmark history for trend analysis
 
 ---
 
@@ -68,6 +71,17 @@ The mapping is deterministic (same input -> same token) for context continuity, 
 2. Minimize action-mismatch objective vs benchmark expected actions
 3. Return recommended thresholds + per-case evaluation traces
 
+### `/privacy/autotune` flow (admin-only)
+
+1. Pull recent production audit telemetry (`allow/challenge/block` risk traces)
+2. Estimate threshold boundaries from observed score distributions
+3. Return or persist recommended policy thresholds
+
+### `/privacy/benchmark/history` flow (admin-only)
+
+1. Persist benchmark snapshots over time
+2. Retrieve trend history for leak-rate, utility, and latency drift monitoring
+
 ---
 
 ## Novelty and FYP Value
@@ -83,6 +97,9 @@ This architecture contributes beyond common coursework by combining:
 - **Red-team style benchmark metrics**
 - **NER-enhanced contextual detection with backend abstraction**
 - **Benchmark-driven threshold calibration**
+- **Transformer-ready NER backend support**
+- **Audit-telemetry-driven auto-tuning**
+- **Benchmark trend observability**
 
 This gives a strong "systems + security + AI" story for viva/demo.
 
@@ -100,7 +117,7 @@ This gives a strong "systems + security + AI" story for viva/demo.
 
 ## Next Upgrades to Reach "Research-Grade"
 
-1. Add transformer NER backend (e.g. multilingual DeBERTa) alongside spaCy
+1. Add multilingual transformer NER backend (e.g. XLM-R / DeBERTa-v3) and compare by locale
 2. Add benchmark dataset versioning and cross-validation splits
 3. Add key rotation + external KMS integration for vault keys
 4. Add retrieval-safe memory policies for multi-turn chats

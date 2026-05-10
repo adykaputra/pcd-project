@@ -13,6 +13,9 @@ from typing import Dict, Any, List, Tuple
 _SPACY_MODEL = None
 _SPACY_MODEL_NAME = None
 _SPACY_READY = None
+_TRANSFORMER_PIPELINE = None
+_TRANSFORMER_MODEL_NAME = None
+_TRANSFORMER_READY = None
 
 
 KNOWN_NAMES = {
@@ -67,6 +70,36 @@ def _load_spacy_model() -> Tuple[bool, str]:
     backend = os.getenv("PRIVACY_NER_BACKEND", "auto").lower()
     if backend not in {"auto", "spacy"}:
         _SPACY_READY = False
+        return False, requested_model
+
+
+def _load_transformer_pipeline() -> Tuple[bool, str]:
+    """Lazy-load transformer NER pipeline if installed."""
+    global _TRANSFORMER_PIPELINE, _TRANSFORMER_MODEL_NAME, _TRANSFORMER_READY
+    if _TRANSFORMER_READY is not None:
+        return _TRANSFORMER_READY, (_TRANSFORMER_MODEL_NAME or "none")
+
+    requested_model = os.getenv("PRIVACY_NER_TRANSFORMER_MODEL", "dslim/bert-base-NER")
+    backend = os.getenv("PRIVACY_NER_BACKEND", "auto").lower()
+    if backend not in {"auto", "transformer"}:
+        _TRANSFORMER_READY = False
+        return False, requested_model
+
+    try:
+        from transformers import pipeline  # type: ignore
+
+        _TRANSFORMER_PIPELINE = pipeline(
+            "token-classification",
+            model=requested_model,
+            aggregation_strategy="simple",
+        )
+        _TRANSFORMER_MODEL_NAME = requested_model
+        _TRANSFORMER_READY = True
+        return True, requested_model
+    except Exception:
+        _TRANSFORMER_READY = False
+        _TRANSFORMER_PIPELINE = None
+        _TRANSFORMER_MODEL_NAME = requested_model
         return False, requested_model
 
     try:
@@ -125,6 +158,47 @@ def _detect_with_spacy(text: str) -> Dict[str, Any]:
             }
         )
     return {"backend": "spacy", "model": model_name, "entities": _dedupe_entities(entities)}
+
+
+def _normalize_transformer_label(raw: str) -> str:
+    label = (raw or "").upper().replace("B-", "").replace("I-", "")
+    mapping = {
+        "PER": "PERSON",
+        "PERSON": "PERSON",
+        "ORG": "ORG",
+        "ORGANIZATION": "ORG",
+        "LOC": "LOC",
+        "GPE": "GPE",
+        "LOCATION": "LOC",
+    }
+    return mapping.get(label, label)
+
+
+def _detect_with_transformer(text: str) -> Dict[str, Any]:
+    ready, model_name = _load_transformer_pipeline()
+    if not ready or _TRANSFORMER_PIPELINE is None:
+        return {"backend": "fallback", "model": model_name, "entities": []}
+
+    entities: List[Dict[str, Any]] = []
+    for item in _TRANSFORMER_PIPELINE(text):
+        label = _normalize_transformer_label(item.get("entity_group", item.get("entity", "")))
+        if label not in {"PERSON", "ORG", "GPE", "LOC"}:
+            continue
+        start = int(item.get("start", 0))
+        end = int(item.get("end", 0))
+        if end <= start:
+            continue
+        entities.append(
+            {
+                "text": text[start:end],
+                "label": label,
+                "start": start,
+                "end": end,
+                "confidence": float(item.get("score", 0.65)),
+                "source": "transformer",
+            }
+        )
+    return {"backend": "transformer", "model": model_name, "entities": _dedupe_entities(entities)}
 
 
 def _detect_with_fallback(text: str) -> Dict[str, Any]:
@@ -200,6 +274,11 @@ def detect_named_entities(text: str) -> Dict[str, Any]:
         return {"backend": "none", "model": "none", "entities": []}
 
     backend = os.getenv("PRIVACY_NER_BACKEND", "auto").lower()
+    if backend in {"auto", "transformer"}:
+        tf_result = _detect_with_transformer(text)
+        if tf_result["backend"] == "transformer":
+            return tf_result
+
     if backend in {"auto", "spacy"}:
         spacy_result = _detect_with_spacy(text)
         if spacy_result["backend"] == "spacy":

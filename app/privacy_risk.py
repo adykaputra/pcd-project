@@ -6,6 +6,7 @@ import re
 from typing import Dict, Any, List
 
 from app.module2.logic import detect_pii_counts
+from app.privacy_policy_config import get_policy_thresholds
 
 
 OBFUSCATED_EMAIL_RE = re.compile(
@@ -24,6 +25,11 @@ SENSITIVE_INTENT_RE = re.compile(
 def _threshold(name: str, default: int) -> int:
     raw = os.getenv(name)
     if not raw:
+        config = get_policy_thresholds()
+        if name == "PRIVACY_CHALLENGE_THRESHOLD":
+            return int(config.get("challenge_threshold", default))
+        if name == "PRIVACY_BLOCK_THRESHOLD":
+            return int(config.get("block_threshold", default))
         return default
     try:
         return int(raw)

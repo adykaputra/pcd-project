@@ -220,6 +220,26 @@ export PRIVACY_NER_BACKEND=spacy
 export PRIVACY_NER_MODEL=en_core_web_sm
 ```
 
+10. Optional: enable transformer NER backend (Phase 4):
+
+```bash
+pip install transformers torch
+export PRIVACY_NER_BACKEND=transformer
+export PRIVACY_NER_TRANSFORMER_MODEL=dslim/bert-base-NER
+```
+
+11. Auto-tune policy thresholds from audit telemetry (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/autotune?hours=168&min_samples=10'
+```
+
+12. View benchmark trend history (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark/history?limit=20'
+```
+
 ---
 
 ## License
