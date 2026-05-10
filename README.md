@@ -170,19 +170,28 @@ curl -X POST http://localhost:5000/sanitize -H 'Content-Type: application/json' 
 # {"status":"sanitized","sanitized_prompt":"My phone is [REDACTED_PHONE]"}
 ```
 
-3. Generate via LLM Proxy (ensure sanitized_prompt is sent):
+3. Generate via Privacy Firewall (raw prompts are tokenized before LLM dispatch):
 
 ```bash
-curl -X POST http://localhost:5000/generate -H 'Content-Type: application/json' -d '{"sanitized_prompt":"Hello world"}'
+curl -X POST http://localhost:5000/generate -H 'Content-Type: application/json' -d '{"prompt":"Ali from KL, phone 012-3456789, email ali@example.com"}'
 ```
 
-4. View audit summary (admin only):
+4. (Admin only) Detokenize for legal/audit workflows:
+
+```bash
+curl -X POST http://localhost:5000/detokenize \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <admin-token>' \
+  -d '{"text":"[NAME_...], phone [PHONE_...], email [EMAIL_...]"}'
+```
+
+5. View audit summary (admin only):
 
 ```bash
 curl -H 'Authorization: Bearer <token>' http://localhost:5000/audit/summary
 ```
 
-5. Dashboard (passes token via query):
+6. Dashboard (passes token via query):
 
 Open in browser: `http://localhost:5000/audit/dashboard?token=<token>`
 
