@@ -17,6 +17,7 @@ This project is no longer just a "redaction script." It is now an **LLM Privacy 
 11. Auto-tunes thresholds from live audit telemetry
 12. Tracks benchmark history for trend analysis
 13. Supports versioned multilingual benchmark datasets with split-wise evaluation
+14. Enforces CI benchmark quality gates with reproducible evaluation artifacts
 
 ---
 
@@ -89,6 +90,12 @@ The mapping is deterministic (same input -> same token) for context continuity, 
 2. Select a dataset version for benchmark/calibration runs
 3. Enable reproducible evaluation across project milestones
 
+### CI Benchmark Gate Flow
+
+1. Run dataset-driven benchmark in CI (currently `v2/all`)
+2. Evaluate gate thresholds (leak-rate, detection-rate, utility, latency, action-accuracy)
+3. Fail pipeline on regression and store gate artifacts
+
 ---
 
 ## Novelty and FYP Value
@@ -108,6 +115,7 @@ This architecture contributes beyond common coursework by combining:
 - **Audit-telemetry-driven auto-tuning**
 - **Benchmark trend observability**
 - **Versioned multilingual benchmark science**
+- **CI-enforced privacy quality governance**
 
 This gives a strong "systems + security + AI" story for viva/demo.
 

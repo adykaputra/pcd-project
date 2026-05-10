@@ -30,6 +30,8 @@ def run_privacy_benchmark(dataset_version: str = "v1", split: str = "all") -> Di
     elapsed_ms_total = 0.0
     policy_counts = {"allow": 0, "challenge": 0, "block": 0}
     by_language: Dict[str, int] = {}
+    expected_scored = 0
+    expected_matches = 0
 
     for case in benchmark_cases:
         prompt = case["prompt"]
@@ -59,6 +61,11 @@ def run_privacy_benchmark(dataset_version: str = "v1", split: str = "all") -> Di
         action = risk.get("policy_action", "allow")
         if action in policy_counts:
             policy_counts[action] += 1
+        expected_action = case.get("expected_action")
+        if expected_action:
+            expected_scored += 1
+            if str(expected_action) == str(action):
+                expected_matches += 1
         lang = str(case.get("language", "unknown"))
         by_language[lang] = by_language.get(lang, 0) + 1
 
@@ -81,6 +88,8 @@ def run_privacy_benchmark(dataset_version: str = "v1", split: str = "all") -> Di
         )
 
     leak_rate = (leaked_cases / total_pii_cases) if total_pii_cases else 0.0
+    detection_rate = (detected_cases / total_pii_cases) if total_pii_cases else 0.0
+    expected_action_accuracy = (expected_matches / expected_scored) if expected_scored else 0.0
     avg_utility = sum(utilities) / len(utilities) if utilities else 1.0
     avg_latency = elapsed_ms_total / len(benchmark_cases) if benchmark_cases else 0.0
 
@@ -91,7 +100,9 @@ def run_privacy_benchmark(dataset_version: str = "v1", split: str = "all") -> Di
             "total_cases": len(benchmark_cases),
             "pii_cases": total_pii_cases,
             "detected_cases": detected_cases,
+            "pii_detection_rate": round(detection_rate, 3),
             "core_pii_leak_rate": round(leak_rate, 3),
+            "expected_action_accuracy": round(expected_action_accuracy, 3),
             "avg_utility_score": round(avg_utility, 3),
             "avg_latency_ms": round(avg_latency, 3),
             "policy_action_counts": policy_counts,

@@ -54,3 +54,35 @@ jobs:
           name: pytest
           path: reports/junit.xml
           reporter: junit
+
+  privacy-benchmark-gate:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-activate-base: false
+          environment-file: environment.yml
+          environment-name: pcd
+
+      - name: Run privacy benchmark quality gate
+        run: |
+          mkdir -p reports
+          conda run -n pcd python scripts/check_benchmark_gate.py \
+            --dataset-version v2 \
+            --split all \
+            --max-leak-rate 0.05 \
+            --min-utility-score 0.75 \
+            --max-latency-ms 100 \
+            --min-detection-rate 0.6 \
+            --min-expected-action-accuracy 0.3 | tee reports/privacy-benchmark-gate.log
+
+      - name: Upload benchmark gate report
+        uses: actions/upload-artifact@v4
+        with:
+          name: privacy-benchmark-gate
+          path: reports/privacy-benchmark-gate.log

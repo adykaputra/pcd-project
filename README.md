@@ -258,6 +258,18 @@ curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark
 curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark?dataset_version=v2&mode=cross_split&persist=0'
 ```
 
+16. Run local benchmark gate (same logic as CI):
+
+```bash
+python3 scripts/check_benchmark_gate.py --dataset-version v2 --split all
+```
+
+17. Generate reproducible phase6 evaluation artifacts:
+
+```bash
+python3 scripts/run_phase6_evaluation.py
+```
+
 ---
 
 ## License
