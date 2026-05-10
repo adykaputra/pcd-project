@@ -63,7 +63,7 @@ def _score_thresholds(cases: Iterable[Dict[str, Any]], challenge: int, block: in
 
 def calibrate_policy_thresholds(
     dataset_version: str = "v1",
-    split: str = "validation",
+    split: str = "all",
     challenge_range: Tuple[int, int] = (25, 65),
     block_range: Tuple[int, int] = (60, 95),
 ) -> Dict[str, Any]:
