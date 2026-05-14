@@ -120,6 +120,19 @@ docker compose up
 docker compose run --rm flask conda run --no-capture-output -n pcd python -c "import app; print('import-ok')"
 ```
 
+### If Docker build fails with `import file mismatch` in pytest
+
+This means Docker copied duplicate project folders (for example `/usr/src/app/pcd-project` in addition to `/usr/src/app`).
+
+1. Remove accidental nested copies from your local project folder.
+2. Rebuild without cache:
+
+```bash
+docker compose down --remove-orphans
+docker compose build --no-cache flask
+docker compose up
+```
+
 ---
 
 ## Directory Breakdown

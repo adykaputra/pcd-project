@@ -35,5 +35,5 @@ RUN conda env create -f environment.yml
 SHELL ["/bin/bash", "-lc"]
 COPY . /usr/src/app
 ENV PYTHONPATH=/usr/src/app
-# Run pytest inside the `pcd` environment; the build will fail if tests fail
-RUN conda run -n pcd pytest -q
+# Run pytest inside the `pcd` environment; ignore accidental nested project copies
+RUN conda run -n pcd pytest -q --ignore=pcd-project --ignore-glob='*/pcd-project/*'
