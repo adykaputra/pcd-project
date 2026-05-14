@@ -1,0 +1,16 @@
+.git
+.gitignore
+.cursor
+.env
+
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+.venv/
+venv/
+
+# Avoid accidental nested project copies (causes pytest import mismatch)
+pcd-project/
+**/pcd-project/

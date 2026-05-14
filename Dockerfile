@@ -19,13 +19,13 @@ COPY . /usr/src/app
 # Expose the port Flask will run on
 EXPOSE 5000
 
-# Set environment variables (FLASK_APP points to the 'app' variable inside the package)
-ENV FLASK_APP=app:app
+# Set environment variables (use the app factory explicitly)
+ENV FLASK_APP=app:create_app
 ENV FLASK_ENV=development
 ENV PYTHONPATH=/usr/src/app
 
 # Default command: run Flask inside the conda environment named 'pcd'
-CMD ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "run", "--host=0.0.0.0", "--port=5000"]
+CMD ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "--app", "app:create_app", "run", "--host=0.0.0.0", "--port=5000"]
 
 # Test stage: create the conda env and run the test suite inside it
 FROM condaforge/mambaforge:latest AS test
@@ -35,5 +35,5 @@ RUN conda env create -f environment.yml
 SHELL ["/bin/bash", "-lc"]
 COPY . /usr/src/app
 ENV PYTHONPATH=/usr/src/app
-# Run pytest inside the `pcd` environment; the build will fail if tests fail
-RUN conda run -n pcd pytest -q
+# Run pytest inside the `pcd` environment; ignore accidental nested project copies
+RUN conda run -n pcd pytest -q --ignore=pcd-project --ignore-glob='*/pcd-project/*'

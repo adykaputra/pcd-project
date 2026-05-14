@@ -89,13 +89,49 @@ pip install -r requirements.txt
 docker-compose up --build
 ```
 
-2. **Access the application** in your browser at `http://localhost:5000`.
+2. **Access the application** in your browser at `http://localhost:5100`.
 
-   * **Module 1**: `http://localhost:5000/module1`
-   * **Module 2**: `http://localhost:5000/module2`
-   * **Module 3**: `http://localhost:5000/module3`
+   * **Module 1**: `http://localhost:5100/module1`
+   * **Module 2**: `http://localhost:5100/module2`
+   * **Module 3**: `http://localhost:5100/module3`
 
-   You can also access the data from the `/data` endpoint in **Module 3** (`http://localhost:5000/module3/data`).
+   You can also access the data from the `/data` endpoint in **Module 3** (`http://localhost:5100/module3/data`).
+
+### If Docker logs spam `Error: Could not import 'app'`
+
+This usually means Flask failed during startup and the container keeps restarting.
+
+1. Stop the loop:
+
+```bash
+docker compose down
+```
+
+2. Rebuild cleanly and start again:
+
+```bash
+docker compose build --no-cache flask
+docker compose up
+```
+
+3. If it still fails, run a one-shot import check to see the real traceback:
+
+```bash
+docker compose run --rm flask conda run --no-capture-output -n pcd python -c "import app; print('import-ok')"
+```
+
+### If Docker build fails with `import file mismatch` in pytest
+
+This means Docker copied duplicate project folders (for example `/usr/src/app/pcd-project` in addition to `/usr/src/app`).
+
+1. Remove accidental nested copies from your local project folder.
+2. Rebuild without cache:
+
+```bash
+docker compose down --remove-orphans
+docker compose build --no-cache flask
+docker compose up
+```
 
 ---
 
@@ -139,10 +175,10 @@ The `data/` folder is **mounted as a volume** inside the container, which ensure
 
 You can test individual modules by sending HTTP requests to the endpoints:
 
-* **Module 1**: `http://localhost:5000/module1`
-* **Module 2**: `http://localhost:5000/module2`
-* **Module 3**: `http://localhost:5000/module3`
-* **Module 3 Data**: `http://localhost:5000/module3/data`
+* **Module 1**: `http://localhost:5100/module1`
+* **Module 2**: `http://localhost:5100/module2`
+* **Module 3**: `http://localhost:5100/module3`
+* **Module 3 Data**: `http://localhost:5100/module3/data`
 
 To add unit tests, create test files inside the `tests/` directory. You can use **pytest** or any other testing framework.
 
@@ -159,32 +195,120 @@ For production environments, you can use a WSGI server like **Gunicorn** and dep
 1. Login to get an admin token (default password: `admin-pass`):
 
 ```bash
-curl -X POST http://localhost:5000/login -H 'Content-Type: application/json' -d '{"password":"admin-pass"}'
+curl -X POST http://localhost:5100/login -H 'Content-Type: application/json' -d '{"password":"admin-pass"}'
 # {"status":"ok","token":"..."}
 ```
 
 2. Sanitize a prompt:
 
 ```bash
-curl -X POST http://localhost:5000/sanitize -H 'Content-Type: application/json' -d '{"role":"client","prompt":"My phone is 012-3456789"}'
+curl -X POST http://localhost:5100/sanitize -H 'Content-Type: application/json' -d '{"role":"client","prompt":"My phone is 012-3456789"}'
 # {"status":"sanitized","sanitized_prompt":"My phone is [REDACTED_PHONE]"}
 ```
 
-3. Generate via LLM Proxy (ensure sanitized_prompt is sent):
+3. Generate via Privacy Firewall (raw prompts are tokenized before LLM dispatch):
 
 ```bash
-curl -X POST http://localhost:5000/generate -H 'Content-Type: application/json' -d '{"sanitized_prompt":"Hello world"}'
+curl -X POST http://localhost:5100/generate -H 'Content-Type: application/json' -d '{"prompt":"Ali from KL, phone 012-3456789, email ali@example.com"}'
+# Response can be:
+# - {"status":"ok", ...}       -> forwarded to LLM
+# - {"status":"challenge", ...} -> medium-risk, requires review
+# - {"status":"denied", ...}    -> high-risk blocked by policy engine
 ```
 
-4. View audit summary (admin only):
+4. (Admin only) Detokenize for legal/audit workflows:
 
 ```bash
-curl -H 'Authorization: Bearer <token>' http://localhost:5000/audit/summary
+curl -X POST http://localhost:5100/detokenize \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <admin-token>' \
+  -d '{"text":"[NAME_...], phone [PHONE_...], email [EMAIL_...]"}'
 ```
 
-5. Dashboard (passes token via query):
+5. View audit summary (admin only):
 
-Open in browser: `http://localhost:5000/audit/dashboard?token=<token>`
+```bash
+curl -H 'Authorization: Bearer <token>' http://localhost:5100/audit/summary
+```
+
+6. Dashboard (passes token via query):
+
+Open in browser: `http://localhost:5100/audit/dashboard?token=<token>`
+
+7. High-fidelity prototype landing page:
+
+Open in browser: `http://localhost:5100/`
+
+7. Run adversarial privacy benchmark (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' http://localhost:5100/privacy/benchmark
+```
+
+8. Get policy threshold calibration recommendation (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' http://localhost:5100/privacy/calibrate
+```
+
+9. Optional: enable spaCy NER backend (Phase 3):
+
+```bash
+pip install spacy
+python -m spacy download en_core_web_sm
+export PRIVACY_NER_BACKEND=spacy
+export PRIVACY_NER_MODEL=en_core_web_sm
+```
+
+10. Optional: enable transformer NER backend (Phase 4):
+
+```bash
+pip install transformers torch
+export PRIVACY_NER_BACKEND=transformer
+export PRIVACY_NER_TRANSFORMER_MODEL=dslim/bert-base-NER
+```
+
+11. Auto-tune policy thresholds from audit telemetry (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/autotune?hours=168&min_samples=10'
+```
+
+12. View benchmark trend history (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark/history?limit=20'
+```
+
+13. List benchmark dataset versions (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark/datasets'
+```
+
+14. Run multilingual benchmark dataset v2 (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark?dataset_version=v2&split=all'
+```
+
+15. Run cross-split evaluation (train/validation/test):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark?dataset_version=v2&mode=cross_split&persist=0'
+```
+
+16. Run local benchmark gate (same logic as CI):
+
+```bash
+python3 scripts/check_benchmark_gate.py --dataset-version v2 --split all
+```
+
+17. Generate reproducible phase6 evaluation artifacts:
+
+```bash
+python3 scripts/run_phase6_evaluation.py
+```
 
 ---
 

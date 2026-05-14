@@ -71,3 +71,4 @@ dist/
 *.cover
 .pytest_cache/
 nosetests.xml
+reports/phase6/

@@ -35,15 +35,6 @@ def create_app():
             except Exception as e:
                 app.logger.error("Failed to import/register blueprint for %s: %s", mod, e, extra={"event_type": "MODULE_REGISTRATION"})
 
-        # ensure module4 blueprint is registered under /audit
-        try:
-            module4 = __import__("app.module4.routes", fromlist=["bp"])  # explicit import to ensure registration
-            bp4 = getattr(module4, "bp", None)
-            if bp4:
-                app.register_blueprint(bp4)
-        except Exception as e:
-            app.logger.error("Failed to import/register module4 routes: %s", e, extra={"event_type": "MODULE_REGISTRATION"})
-
     return app
 
 app = create_app()
