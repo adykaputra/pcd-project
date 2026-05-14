@@ -8,14 +8,14 @@ services:
     working_dir: /usr/src/app  # Add this line
     environment:
       - PYTHONPATH=/usr/src/app
-      - FLASK_APP=app:app  # Assuming your Flask app instance is named 'app' in app/__init__.py
+      - FLASK_APP=app:create_app
       - FLASK_ENV=development
     volumes:
       - ./:/usr/src/app    # mount project root so /usr/src/app/app is the package
     ports:
       - "5100:5000"  # Expose Flask app on port 5000
-    command: ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
-    restart: unless-stopped
+    command: ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "--app", "app:create_app", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
+    restart: on-failure:3
     depends_on:
       - flask_db  # If you have a database service, you can define it here as a dependency (optional)
 
