@@ -16,6 +16,7 @@ dependencies:
     - flask_sqlalchemy
     - flask-cors
     - requests
+    - openai
     - pytest
     - black
     - PyJWT
