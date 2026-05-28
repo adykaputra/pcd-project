@@ -89,13 +89,13 @@ pip install -r requirements.txt
 docker-compose up --build
 ```
 
-2. **Access the application** in your browser at `http://localhost:5000`.
+2. **Access the application** in your browser at `http://localhost:5100`.
 
-   * **Module 1**: `http://localhost:5000/module1`
-   * **Module 2**: `http://localhost:5000/module2`
-   * **Module 3**: `http://localhost:5000/module3`
+   * **Module 1**: `http://localhost:5100/module1`
+   * **Module 2**: `http://localhost:5100/module2`
+   * **Module 3**: `http://localhost:5100/module3`
 
-   You can also access the data from the `/data` endpoint in **Module 3** (`http://localhost:5000/module3/data`).
+   You can also access the data from the `/data` endpoint in **Module 3** (`http://localhost:5100/module3/data`).
 
 ---
 
@@ -139,10 +139,10 @@ The `data/` folder is **mounted as a volume** inside the container, which ensure
 
 You can test individual modules by sending HTTP requests to the endpoints:
 
-* **Module 1**: `http://localhost:5000/module1`
-* **Module 2**: `http://localhost:5000/module2`
-* **Module 3**: `http://localhost:5000/module3`
-* **Module 3 Data**: `http://localhost:5000/module3/data`
+* **Module 1**: `http://localhost:5100/module1`
+* **Module 2**: `http://localhost:5100/module2`
+* **Module 3**: `http://localhost:5100/module3`
+* **Module 3 Data**: `http://localhost:5100/module3/data`
 
 To add unit tests, create test files inside the `tests/` directory. You can use **pytest** or any other testing framework.
 
@@ -159,31 +159,47 @@ For production environments, you can use a WSGI server like **Gunicorn** and dep
 1. Login to get an admin token (default password: `admin-pass`):
 
 ```bash
-curl -X POST http://localhost:5000/login -H 'Content-Type: application/json' -d '{"password":"admin-pass"}'
+curl -X POST http://localhost:5100/login -H 'Content-Type: application/json' -d '{"password":"admin-pass"}'
 # {"status":"ok","token":"..."}
 ```
 
 2. Sanitize a prompt:
 
 ```bash
-curl -X POST http://localhost:5000/sanitize -H 'Content-Type: application/json' -d '{"role":"client","prompt":"My phone is 012-3456789"}'
+curl -X POST http://localhost:5100/sanitize -H 'Content-Type: application/json' -d '{"role":"client","prompt":"My phone is 012-3456789"}'
 # {"status":"sanitized","sanitized_prompt":"My phone is [REDACTED_PHONE]"}
 ```
 
 3. Generate via Privacy Firewall (raw prompts are tokenized before LLM dispatch):
 
 ```bash
-curl -X POST http://localhost:5000/generate -H 'Content-Type: application/json' -d '{"prompt":"Ali from KL, phone 012-3456789, email ali@example.com"}'
+curl -X POST http://localhost:5100/generate -H 'Content-Type: application/json' -d '{"prompt":"Ali from KL, phone 012-3456789, email ali@example.com"}'
 # Response can be:
 # - {"status":"ok", ...}       -> forwarded to LLM
 # - {"status":"challenge", ...} -> medium-risk, requires review
 # - {"status":"denied", ...}    -> high-risk blocked by policy engine
 ```
 
+### LLM provider modes (important for demo success)
+
+- **Default mode (`mock`)**: works offline and does not require any API key/plugin.  
+  This is the recommended mode for viva/demo reliability.
+- **Online mode (`openai`)**: requires the OpenAI SDK and `OPENAI_API_KEY`.
+
+Use OpenAI explicitly:
+
+```bash
+curl -X POST http://localhost:5100/generate \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"Explain hashing", "provider":"openai", "model":"gpt-4o-mini"}'
+```
+
+If OpenAI is unavailable, the service now safely falls back to `mock` mode so the UI still works.
+
 4. (Admin only) Detokenize for legal/audit workflows:
 
 ```bash
-curl -X POST http://localhost:5000/detokenize \
+curl -X POST http://localhost:5100/detokenize \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer <admin-token>' \
   -d '{"text":"[NAME_...], phone [PHONE_...], email [EMAIL_...]"}'
@@ -192,30 +208,37 @@ curl -X POST http://localhost:5000/detokenize \
 5. View audit summary (admin only):
 
 ```bash
-curl -H 'Authorization: Bearer <token>' http://localhost:5000/audit/summary
+curl -H 'Authorization: Bearer <token>' http://localhost:5100/audit/summary
 ```
 
 6. Dashboard (passes token via query):
 
-Open in browser: `http://localhost:5000/audit/dashboard?token=<token>`
+Open in browser: `http://localhost:5100/audit/dashboard?token=<token>`
 
 7. High-fidelity prototype landing page:
 
-Open in browser: `http://localhost:5000/`
+Open in browser: `http://localhost:5100/`
 
 7. Run adversarial privacy benchmark (admin only):
 
 ```bash
-curl -H 'Authorization: Bearer <token>' http://localhost:5000/privacy/benchmark
+curl -H 'Authorization: Bearer <token>' http://localhost:5100/privacy/benchmark
 ```
 
 8. Get policy threshold calibration recommendation (admin only):
 
 ```bash
-curl -H 'Authorization: Bearer <token>' http://localhost:5000/privacy/calibrate
+curl -H 'Authorization: Bearer <token>' http://localhost:5100/privacy/calibrate
 ```
 
-9. Optional: enable spaCy NER backend (Phase 3):
+9. Optional: use real OpenAI provider (online mode):
+
+```bash
+pip install openai
+export OPENAI_API_KEY=your_api_key_here
+```
+
+10. Optional: enable spaCy NER backend (Phase 3):
 
 ```bash
 pip install spacy
@@ -224,7 +247,7 @@ export PRIVACY_NER_BACKEND=spacy
 export PRIVACY_NER_MODEL=en_core_web_sm
 ```
 
-10. Optional: enable transformer NER backend (Phase 4):
+11. Optional: enable transformer NER backend (Phase 4):
 
 ```bash
 pip install transformers torch
@@ -232,43 +255,43 @@ export PRIVACY_NER_BACKEND=transformer
 export PRIVACY_NER_TRANSFORMER_MODEL=dslim/bert-base-NER
 ```
 
-11. Auto-tune policy thresholds from audit telemetry (admin only):
+12. Auto-tune policy thresholds from audit telemetry (admin only):
 
 ```bash
-curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/autotune?hours=168&min_samples=10'
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/autotune?hours=168&min_samples=10'
 ```
 
-12. View benchmark trend history (admin only):
+13. View benchmark trend history (admin only):
 
 ```bash
-curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark/history?limit=20'
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark/history?limit=20'
 ```
 
-13. List benchmark dataset versions (admin only):
+14. List benchmark dataset versions (admin only):
 
 ```bash
-curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark/datasets'
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark/datasets'
 ```
 
-14. Run multilingual benchmark dataset v2 (admin only):
+15. Run multilingual benchmark dataset v2 (admin only):
 
 ```bash
-curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark?dataset_version=v2&split=all'
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark?dataset_version=v2&split=all'
 ```
 
-15. Run cross-split evaluation (train/validation/test):
+16. Run cross-split evaluation (train/validation/test):
 
 ```bash
-curl -H 'Authorization: Bearer <token>' 'http://localhost:5000/privacy/benchmark?dataset_version=v2&mode=cross_split&persist=0'
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark?dataset_version=v2&mode=cross_split&persist=0'
 ```
 
-16. Run local benchmark gate (same logic as CI):
+17. Run local benchmark gate (same logic as CI):
 
 ```bash
 python3 scripts/check_benchmark_gate.py --dataset-version v2 --split all
 ```
 
-17. Generate reproducible phase6 evaluation artifacts:
+18. Generate reproducible phase6 evaluation artifacts:
 
 ```bash
 python3 scripts/run_phase6_evaluation.py

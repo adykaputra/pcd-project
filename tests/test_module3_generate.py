@@ -88,6 +88,23 @@ def test_generate_rejects_when_prompt_missing(client):
     assert body.get('status') == 'denied'
 
 
+def test_generate_defaults_to_mock_provider_for_offline_demo(client):
+    resp = client.post('/generate', json={'prompt': 'Explain hashing in simple terms.'})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body.get('status') == 'ok'
+    assert body.get('provider') == 'mock'
+    assert body.get('offline_mode') is True
+
+
+def test_generate_unknown_provider_returns_400(client):
+    resp = client.post('/generate', json={'prompt': 'Hello world', 'provider': 'unknown-provider'})
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert body.get('status') == 'denied'
+    assert 'Unknown provider' in body.get('message', '')
+
+
 def test_detokenize_requires_admin(client):
     resp = client.post('/detokenize', json={'text': '[EMAIL_ABCDEF123456]'})
     assert resp.status_code == 403

@@ -128,7 +128,7 @@ def generate():
             "risk_assessment": risk,
         }), 409
 
-    provider = data.get('provider', 'openai')
+    provider = data.get('provider', os.getenv("LLM_DEFAULT_PROVIDER", "mock"))
     model = data.get('model', None)
 
     from flask import g
@@ -155,6 +155,9 @@ def generate():
 
         adapter = get_adapter(provider=provider, model=model)
         result = adapter.send_prompt(tokenized_prompt)
+        resolved_provider = result.get("provider") or getattr(adapter, "provider_name", provider)
+    except ValueError as e:
+        return jsonify({"status": "denied", "message": str(e)}), 400
     except Exception as e:
         current_app.logger.error("[LLM_PROXY] Adapter error: %s", e)
         return jsonify({"status": "error", "message": "LLM adapter failed to process the request."}), 500
@@ -177,9 +180,10 @@ def generate():
 
     return jsonify({
         "status": "ok",
-        "provider": provider,
+        "provider": resolved_provider,
         "model": model,
         "response": result.get("text"),
+        "offline_mode": bool(result.get("offline_mode", False)),
         "redaction_applied": tokenization["had_pii"],
         "tokenization": {
             "applied": tokenization["had_pii"],
