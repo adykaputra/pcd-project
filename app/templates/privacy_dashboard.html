@@ -135,7 +135,21 @@
 
             <section id="panel-chart" class="panel wide">
                 <h3>Chart Center</h3>
-                <p class="muted">Benchmark chart, calibration, autotune, and endpoint results are shown below.</p>
+                <p class="muted">Live product telemetry for privacy quality, policy actions, and benchmark trends.</p>
+                <div class="chart-grid">
+                    <div class="chart-card">
+                        <h4>Privacy Quality Snapshot</h4>
+                        <div id="quality-cards" class="quality-grid"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Policy Action Distribution</h4>
+                        <div id="policy-bars" class="bars"></div>
+                    </div>
+                    <div class="chart-card chart-wide">
+                        <h4>Benchmark Trend Timeline</h4>
+                        <svg id="trend-chart" viewBox="0 0 760 210" role="img" aria-label="Benchmark trend chart"></svg>
+                    </div>
+                </div>
                 <pre id="response-viewer">{{ {"benchmark": benchmark, "calibration": calibration, "autotune": autotune} | tojson(indent=2) }}</pre>
             </section>
 
@@ -206,7 +220,11 @@
     <script>
         window.__DASHBOARD_BOOTSTRAP__ = {
             datasetVersion: {{ (dataset_version or "v1") | tojson }},
-            availableDatasets: {{ (available_dataset_versions or []) | tojson }}
+            availableDatasets: {{ (available_dataset_versions or []) | tojson }},
+            benchmark: {{ (benchmark or {}) | tojson }},
+            calibration: {{ (calibration or {}) | tojson }},
+            autotune: {{ (autotune or {}) | tojson }},
+            benchmarkHistory: {{ (benchmark_history or []) | tojson }}
         };
     </script>
     <script src="/static/privacy_dashboard.js"></script>

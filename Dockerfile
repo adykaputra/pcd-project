@@ -19,13 +19,13 @@ COPY . /usr/src/app
 # Expose the port Flask will run on
 EXPOSE 5000
 
-# Set environment variables (use app factory explicitly)
+# Set environment variables
 ENV FLASK_APP=app:create_app
-ENV FLASK_ENV=development
+ENV FLASK_ENV=production
 ENV PYTHONPATH=/usr/src/app
 
-# Default command: run Flask inside the conda environment named 'pcd'
-CMD ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "--app", "app:create_app", "run", "--host=0.0.0.0", "--port=5000"]
+# Default command: production-grade WSGI runtime
+CMD ["conda", "run", "--no-capture-output", "-n", "pcd", "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "120", "app:create_app()"]
 
 # Optional test stage:
 #   docker build --target test .

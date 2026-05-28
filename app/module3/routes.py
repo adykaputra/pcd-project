@@ -1,6 +1,8 @@
 import os
 import jwt
+from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app, redirect, url_for
+from app.audit import get_manager
 from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_vault
 from app.privacy_risk import evaluate_prompt_risk
 from app.privacy_benchmark import run_privacy_benchmark, run_privacy_benchmark_cross_split
@@ -17,6 +19,40 @@ bp = Blueprint('module3', __name__)
 def landing():
     """Convenience landing route for the high-fidelity prototype."""
     return redirect(url_for("module4.dashboard"))
+
+
+@bp.route('/healthz', methods=['GET'])
+def healthz():
+    """Liveness/readiness probe for deployment platforms."""
+    checks = {
+        "service": "ok",
+        "audit_db": "unknown",
+        "dataset_catalog": "unknown",
+    }
+    status_code = 200
+
+    try:
+        # Ensures DB path/table exists and can be queried.
+        get_manager().summary()
+        checks["audit_db"] = "ok"
+    except Exception as exc:
+        checks["audit_db"] = f"error: {exc}"
+        status_code = 503
+
+    try:
+        checks["dataset_catalog"] = "ok" if list_dataset_versions() else "empty"
+    except Exception as exc:
+        checks["dataset_catalog"] = f"error: {exc}"
+        status_code = 503
+
+    return jsonify(
+        {
+            "status": "ok" if status_code == 200 else "degraded",
+            "service": "llm-privacy-firewall",
+            "ts": datetime.utcnow().isoformat() + "Z",
+            "checks": checks,
+        }
+    ), status_code
 
 
 def _is_admin_request(req) -> bool:

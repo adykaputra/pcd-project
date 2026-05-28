@@ -3,6 +3,10 @@
   const tokenInput = document.getElementById("admin-token");
   const datasetSelect = document.getElementById("benchmark-dataset");
   const splitSelect = document.getElementById("benchmark-split");
+  const qualityCards = document.getElementById("quality-cards");
+  const policyBars = document.getElementById("policy-bars");
+  const trendChart = document.getElementById("trend-chart");
+  const bootstrap = window.__DASHBOARD_BOOTSTRAP__ || {};
 
   function setViewer(title, payload) {
     const body = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
@@ -52,6 +56,141 @@
     if (detectionNode) detectionNode.textContent = String(metrics.pii_detection_rate ?? "n/a");
   }
 
+  function asNumber(value, fallback = 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function extractMetrics(payload) {
+    return payload?.benchmark?.metrics || payload?.metrics || payload?.overall?.metrics || null;
+  }
+
+  function renderQualityCards(metrics) {
+    if (!qualityCards || !metrics) return;
+    const leakPct = (asNumber(metrics.core_pii_leak_rate) * 100).toFixed(1);
+    const utilityPct = (asNumber(metrics.avg_utility_score, 1) * 100).toFixed(1);
+    const detectionPct = (asNumber(metrics.pii_detection_rate) * 100).toFixed(1);
+    const accuracyPct = (asNumber(metrics.expected_action_accuracy) * 100).toFixed(1);
+    const cards = [
+      { label: "Leak Rate", value: `${leakPct}%` },
+      { label: "Detection", value: `${detectionPct}%` },
+      { label: "Utility", value: `${utilityPct}%` },
+      { label: "Policy Accuracy", value: `${accuracyPct}%` },
+    ];
+    qualityCards.innerHTML = cards
+      .map(
+        (entry) => `
+          <div class="quality-item">
+            <span class="label">${entry.label}</span>
+            <span class="value">${entry.value}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  function renderPolicyBars(metrics) {
+    if (!policyBars || !metrics) return;
+    const counts = metrics.policy_action_counts || {};
+    const allow = asNumber(counts.allow);
+    const challenge = asNumber(counts.challenge);
+    const block = asNumber(counts.block);
+    const total = Math.max(allow + challenge + block, 1);
+    const rows = [
+      { key: "allow", label: "allow", value: allow },
+      { key: "challenge", label: "challenge", value: challenge },
+      { key: "block", label: "block", value: block },
+    ];
+    policyBars.innerHTML = rows
+      .map((row) => {
+        const width = ((row.value / total) * 100).toFixed(1);
+        return `
+          <div class="bar-row">
+            <span class="bar-label">${row.label}</span>
+            <div class="bar-track"><div class="bar-fill ${row.key}" style="width:${width}%"></div></div>
+            <span class="bar-value">${row.value}</span>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  function renderTrendChart(history) {
+    if (!trendChart || !Array.isArray(history) || history.length === 0) {
+      if (trendChart) {
+        trendChart.innerHTML = `<text x="20" y="28" fill="#9cadcf" font-size="13">No benchmark history yet. Run Benchmark to generate trend data.</text>`;
+      }
+      return;
+    }
+
+    const points = [...history].reverse();
+    const width = 760;
+    const height = 210;
+    const padX = 45;
+    const padY = 26;
+    const innerW = width - padX * 2;
+    const innerH = height - padY * 2;
+
+    const maxLeak = Math.max(...points.map((p) => asNumber(p.leak_rate)));
+    const maxLatency = Math.max(...points.map((p) => asNumber(p.latency_ms)));
+    const leakDenom = Math.max(maxLeak, 0.001);
+    const latencyDenom = Math.max(maxLatency, 1);
+
+    const projectX = (idx) => (points.length === 1 ? width / 2 : padX + (idx / (points.length - 1)) * innerW);
+    const projectLeakY = (value) => padY + (1 - asNumber(value) / leakDenom) * innerH;
+    const projectLatencyY = (value) => padY + (1 - asNumber(value) / latencyDenom) * innerH;
+
+    const leakPath = points
+      .map((point, idx) => `${idx === 0 ? "M" : "L"} ${projectX(idx).toFixed(2)} ${projectLeakY(point.leak_rate).toFixed(2)}`)
+      .join(" ");
+    const latencyPath = points
+      .map((point, idx) => `${idx === 0 ? "M" : "L"} ${projectX(idx).toFixed(2)} ${projectLatencyY(point.latency_ms).toFixed(2)}`)
+      .join(" ");
+
+    const dots = points
+      .map((point, idx) => {
+        const x = projectX(idx);
+        const yLeak = projectLeakY(point.leak_rate);
+        const yLatency = projectLatencyY(point.latency_ms);
+        return `
+          <circle cx="${x.toFixed(2)}" cy="${yLeak.toFixed(2)}" r="3" fill="#22d3ee">
+            <title>${point.ts}: leak ${asNumber(point.leak_rate).toFixed(3)}</title>
+          </circle>
+          <circle cx="${x.toFixed(2)}" cy="${yLatency.toFixed(2)}" r="2.8" fill="#a78bfa">
+            <title>${point.ts}: latency ${asNumber(point.latency_ms).toFixed(1)} ms</title>
+          </circle>
+        `;
+      })
+      .join("");
+
+    trendChart.innerHTML = `
+      <rect x="0" y="0" width="${width}" height="${height}" fill="#0a1126"></rect>
+      <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" stroke="#2d3b63" stroke-width="1"></line>
+      <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#2d3b63" stroke-width="1"></line>
+      <path d="${leakPath}" fill="none" stroke="#22d3ee" stroke-width="2.2"></path>
+      <path d="${latencyPath}" fill="none" stroke="#a78bfa" stroke-width="2.2"></path>
+      ${dots}
+      <text x="${padX}" y="${padY - 8}" fill="#9cadcf" font-size="12">Leak rate</text>
+      <text x="${padX + 90}" y="${padY - 8}" fill="#9cadcf" font-size="12">Latency (ms)</text>
+    `;
+  }
+
+  function renderChartCenter(payload, historyOverride) {
+    const metrics = extractMetrics(payload);
+    if (metrics) {
+      renderQualityCards(metrics);
+      renderPolicyBars(metrics);
+    }
+    const history = Array.isArray(historyOverride)
+      ? historyOverride
+      : Array.isArray(payload?.history)
+        ? payload.history
+        : Array.isArray(bootstrap.benchmarkHistory)
+          ? bootstrap.benchmarkHistory
+          : [];
+    renderTrendChart(history);
+  }
+
   function renderHistoryRows(history) {
     const tbody = document.getElementById("history-body");
     if (!tbody || !Array.isArray(history)) return;
@@ -75,6 +214,7 @@
     try {
       const payload = await callApi("/privacy/benchmark/history?limit=20", { auth: true });
       renderHistoryRows(payload.history || []);
+      renderTrendChart(payload.history || []);
       setViewer("Benchmark History", payload);
     } catch (err) {
       setViewer("History Error", { status: "error", message: String(err) });
@@ -120,7 +260,7 @@
     event.preventDefault();
     const payload = {
       prompt: document.getElementById("generate-prompt").value,
-      provider: document.getElementById("generate-provider").value || "openai",
+      provider: document.getElementById("generate-provider").value || "mock",
     };
     const model = document.getElementById("generate-model").value;
     if (model) payload.model = model;
@@ -132,6 +272,7 @@
     try {
       const response = await callApi("/generate", { method: "POST", body: payload });
       setViewer("Generate Result", response);
+      renderChartCenter(response);
     } catch (err) {
       setViewer("Generate Error", { status: "error", message: String(err) });
     }
@@ -159,6 +300,7 @@
       const response = await callApi(`/privacy/benchmark?dataset_version=${encodeURIComponent(version)}&split=${encodeURIComponent(split)}&persist=1`, { auth: true });
       updateMetricsFromBenchmark(response.benchmark);
       setViewer("Benchmark Result", response);
+      renderChartCenter(response.benchmark);
       await refreshHistory();
     } catch (err) {
       setViewer("Benchmark Error", { status: "error", message: String(err) });
@@ -171,6 +313,7 @@
       const response = await callApi(`/privacy/benchmark?dataset_version=${encodeURIComponent(version)}&mode=cross_split&persist=0`, { auth: true });
       updateMetricsFromBenchmark(response.benchmark);
       setViewer("Cross-Split Benchmark", response);
+      renderChartCenter(response.benchmark);
     } catch (err) {
       setViewer("Cross-Split Error", { status: "error", message: String(err) });
     }
@@ -182,6 +325,7 @@
       const split = splitSelect?.value || "validation";
       const response = await callApi(`/privacy/calibrate?dataset_version=${encodeURIComponent(version)}&split=${encodeURIComponent(split)}`, { auth: true });
       setViewer("Calibration Result", response);
+      renderChartCenter(response);
     } catch (err) {
       setViewer("Calibration Error", { status: "error", message: String(err) });
     }
@@ -191,6 +335,7 @@
     try {
       const response = await callApi("/privacy/autotune?hours=168&min_samples=10", { auth: true });
       setViewer("Autotune Recommendation", response);
+      renderChartCenter(response);
     } catch (err) {
       setViewer("Autotune Error", { status: "error", message: String(err) });
     }
@@ -202,10 +347,13 @@
     try {
       const response = await callApi("/audit/summary?hours=24", { auth: true });
       setViewer("Audit Summary", response);
+      renderChartCenter(response);
     } catch (err) {
       setViewer("Audit Summary Error", { status: "error", message: String(err) });
     }
   });
+
+  renderChartCenter(bootstrap.benchmark || {});
 
   if (getToken()) {
     refreshDatasetVersions();

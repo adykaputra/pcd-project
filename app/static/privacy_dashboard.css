@@ -216,6 +216,116 @@ button:hover {
   color: var(--muted);
 }
 
+.chart-grid {
+  display: grid;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.chart-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem;
+  background: rgba(10, 17, 38, 0.65);
+}
+
+.chart-card h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.93rem;
+  color: #dbeafe;
+}
+
+.chart-wide {
+  grid-column: 1 / -1;
+}
+
+.quality-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 0.55rem;
+}
+
+.quality-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.6rem;
+  background: rgba(21, 29, 52, 0.8);
+}
+
+.quality-item .label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.quality-item .value {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f0f9ff;
+}
+
+.bars {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 45px;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bar-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bar-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #1f2b4a;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.bar-fill.allow {
+  background: linear-gradient(90deg, #34d399, #10b981);
+}
+
+.bar-fill.challenge {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+.bar-fill.block {
+  background: linear-gradient(90deg, #f87171, #ef4444);
+}
+
+.bar-value {
+  font-size: 0.78rem;
+  color: #d1e3ff;
+}
+
+#trend-chart {
+  width: 100%;
+  height: 210px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #0a1126;
+}
+
 pre {
   margin: 0;
   border: 1px solid var(--border);
@@ -269,6 +379,9 @@ td {
     flex-direction: column;
   }
   .panel-grid {
+    grid-template-columns: 1fr;
+  }
+  .chart-grid {
     grid-template-columns: 1fr;
   }
 }

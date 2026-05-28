@@ -1,6 +1,56 @@
-# Flask Docker Application with Multiple Modules
+# LLM Privacy Firewall - Final Product
 
-This project demonstrates a **Flask web application** structured with **3 modules** using **Flask blueprints**, a **Docker setup** for easy containerization, and **data volume mounting** for persistent data storage.
+Production-ready Flask gateway that protects prompts before they reach LLM providers.
+
+## Final Product Snapshot
+
+This system is now shipped as a full product surface:
+
+- **Privacy Firewall Gateway**: tokenizes/redacts PII before model dispatch.
+- **Policy Engine**: risk scores each prompt and enforces allow/challenge/block.
+- **Reversible Privacy Vault**: admin-only detokenization for legal/compliance workflows.
+- **Adversarial Benchmarking Suite**: evaluates leak rate, utility, latency, and policy accuracy.
+- **Governance UI (dark high-fidelity dashboard)**: auth, generate, benchmark, calibration, autotune, history, and live chart center.
+- **Deployable Containers**:
+  - `docker-compose.yml` for development.
+  - `docker-compose.prod.yml` for production-style runtime.
+
+## Quick Deploy (Production Profile)
+
+1. Create runtime secrets:
+
+```bash
+cp .env.example .env
+# edit .env with strong random secrets
+```
+
+2. Build and run:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+3. Verify health:
+
+```bash
+curl http://localhost:5100/healthz
+```
+
+4. Open dashboard:
+
+`http://localhost:5100/`
+
+5. Run deployment smoke checks:
+
+```bash
+python3 scripts/smoke_test_deploy.py --base-url http://localhost:5100
+```
+
+The production profile uses Gunicorn runtime and health checks, with persisted `data/` volume.
+
+## Showcase Guide
+
+- Product narrative and viva walkthrough: `FINAL_PRODUCT_SHOWCASE.md`
 
 ## Project Structure
 
@@ -150,7 +200,19 @@ To add unit tests, create test files inside the `tests/` directory. You can use 
 
 ## Running in Production
 
-For production environments, you can use a WSGI server like **Gunicorn** and deploy behind a reverse proxy like **Nginx**. A production-grade setup would require additional configurations for better performance, security, and scalability.
+This repo includes a production-style compose file with Gunicorn:
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Recommended hardening before internet exposure:
+
+- Put Nginx/Caddy/Cloud Load Balancer in front (TLS + rate limits).
+- Replace default JWT/audit/vault secrets in `.env`.
+- Set `LLM_DEFAULT_PROVIDER=openai` only after configuring `OPENAI_API_KEY`.
+- Keep persistent `data/` volume backups (vault + audit + benchmark history).
 
 ---
 
