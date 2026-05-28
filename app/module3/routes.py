@@ -155,7 +155,10 @@ def generate():
 
         adapter = get_adapter(provider=provider, model=model)
         result = adapter.send_prompt(tokenized_prompt)
-        resolved_provider = result.get("provider") or getattr(adapter, "provider_name", provider)
+        resolved_provider = result.get("provider")
+        if not isinstance(resolved_provider, str) or not resolved_provider:
+            provider_name = getattr(adapter, "provider_name", None)
+            resolved_provider = provider_name if isinstance(provider_name, str) and provider_name else provider
     except ValueError as e:
         return jsonify({"status": "denied", "message": str(e)}), 400
     except Exception as e:
