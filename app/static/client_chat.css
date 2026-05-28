@@ -1,0 +1,194 @@
+:root {
+  --bg: #080f20;
+  --panel: #131d3a;
+  --panel-2: #1b2a50;
+  --border: #334c78;
+  --text: #eef4ff;
+  --muted: #9bb1de;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Inter, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(circle at top right, #223068 0%, var(--bg) 55%);
+  color: var(--text);
+}
+
+.chat-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  padding: 1rem;
+  background: rgba(7, 12, 26, 0.9);
+}
+
+.sidebar h1 {
+  margin: 0 0 0.5rem;
+}
+
+.sidebar p {
+  color: var(--muted);
+}
+
+.sidebar ul {
+  padding-left: 1rem;
+  color: var(--muted);
+}
+
+.sidebar a {
+  display: inline-block;
+  margin-top: 0.8rem;
+  color: #7dd3fc;
+}
+
+.chat-main {
+  padding: 1rem;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.8rem;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  background: linear-gradient(160deg, rgba(76, 201, 240, 0.1), rgba(139, 92, 246, 0.1));
+}
+
+header h2 {
+  margin: 0;
+}
+
+.badge {
+  border-radius: 999px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--border);
+}
+
+.badge.neutral {
+  color: #c4d8ff;
+}
+
+.badge.ok {
+  color: #86efac;
+  border-color: #165633;
+}
+
+.badge.challenge {
+  color: #fde68a;
+  border-color: #6b4f0f;
+}
+
+.badge.denied {
+  color: #fda4af;
+  border-color: #7f1d1d;
+}
+
+.messages {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.8rem;
+  overflow: auto;
+  background: rgba(12, 20, 41, 0.86);
+  display: grid;
+  gap: 0.6rem;
+}
+
+.message {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+}
+
+.message.user {
+  background: rgba(10, 86, 141, 0.2);
+}
+
+.message.assistant {
+  background: rgba(8, 122, 89, 0.14);
+}
+
+.message.system {
+  background: rgba(88, 67, 190, 0.2);
+}
+
+.message .meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.message p {
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+}
+
+.composer {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem;
+  background: rgba(12, 19, 36, 0.95);
+  display: grid;
+  gap: 0.6rem;
+}
+
+textarea,
+input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.6rem;
+  color: var(--text);
+  background: #0d1630;
+}
+
+.composer-row {
+  display: grid;
+  grid-template-columns: 170px 1fr 120px;
+  gap: 0.6rem;
+  align-items: end;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  background: linear-gradient(135deg, #67e8f9, #22d3ee);
+  color: #011320;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 930px) {
+  .chat-shell {
+    grid-template-columns: 1fr;
+  }
+  .composer-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,35 +1,52 @@
 services:
   flask:
-    # The name of the service is 'flask'
+    # Development stack (hot reload + mounted source)
     build:
-      context: .  # This refers to the current directory, where your Dockerfile is located
-      dockerfile: Dockerfile  # You can specify a different Dockerfile name if necessary
-    container_name: flask_app  # Name of the running container
-    working_dir: /usr/src/app  # Add this line
+      context: .
+      dockerfile: Dockerfile
+    container_name: flask_app
+    working_dir: /usr/src/app
     environment:
       - PYTHONPATH=/usr/src/app
-      - FLASK_APP=app:app  # Assuming your Flask app instance is named 'app' in app/__init__.py
+      - FLASK_APP=app:create_app
       - FLASK_ENV=development
+      - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:-mock}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_DEFAULT_MODEL=${OPENAI_DEFAULT_MODEL:-gpt-4o-mini}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:-llama3.2:3b}
+      - OLLAMA_TIMEOUT_SECONDS=${OLLAMA_TIMEOUT_SECONDS:-90}
+      - JWT_SECRET=${JWT_SECRET:-very-secret}
+      - AUDIT_HMAC_KEY=${AUDIT_HMAC_KEY:-audit-secret}
+      - PII_VAULT_KEY=${PII_VAULT_KEY:-dev-vault-key-change-me}
     volumes:
-      - ./:/usr/src/app    # mount project root so /usr/src/app/app is the package
+      - ./:/usr/src/app
     ports:
-      - "5100:5000"  # Expose Flask app on port 5000
-    command: ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
-    restart: unless-stopped
+      - "5100:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "--app", "app:create_app", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
+    healthcheck:
+      test: ["CMD", "conda", "run", "--no-capture-output", "-n", "pcd", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=3).read()"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: on-failure:3
     depends_on:
-      - flask_db  # If you have a database service, you can define it here as a dependency (optional)
+      - flask_db
 
   flask_db:
-    image: postgres:latest  # Example for adding a PostgreSQL database service
+    image: postgres:latest
     container_name: flask_db
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: flaskdb
     ports:
-      - "5432:5432"  # Expose the PostgreSQL port
+      - "5432:5432"
     volumes:
-      - flask_db_data:/var/lib/postgresql/data  # Store data persistently
+      - flask_db_data:/var/lib/postgresql/data
 
 volumes:
-  flask_db_data:  # This is for persistent storage of your database data
+  flask_db_data:

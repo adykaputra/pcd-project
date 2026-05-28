@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Firewall Control Center</title>
+    <link rel="stylesheet" href="/static/privacy_dashboard.css" />
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-dot"></div>
+                <div>
+                    <h1>Privacy Firewall</h1>
+                    <p>Command Center</p>
+                </div>
+            </div>
+            <nav class="menu-nav">
+                <button class="menu-item active" data-view="dashboard">Dashboard</button>
+                <button class="menu-item" data-view="generate">Generate Lab</button>
+                <button class="menu-item" data-view="governance">Governance</button>
+                <button class="menu-item" data-view="audit">Audit Log</button>
+                <button class="menu-item" data-view="settings">Settings</button>
+            </nav>
+            <div class="status-box">
+                <div class="status-pill online">Gateway Online</div>
+                <div class="status-pill secure">Policy Guard Active</div>
+            </div>
+            <div class="token-box">
+                <label for="admin-token">Admin JWT</label>
+                <textarea id="admin-token" rows="5" placeholder="Paste token here">{{ initial_token or "" }}</textarea>
+            </div>
+        </aside>
+
+        <main class="content">
+            <header class="hero view-section" data-view="dashboard">
+                <div>
+                    <h2>Privacy Operations Command Center</h2>
+                    <p>Tokenize before LLM, evaluate risk, enforce policy, and monitor governance in one modern interface.</p>
+                </div>
+                <div class="hero-metrics">
+                    <div class="metric-card">
+                        <span>Dataset</span>
+                        <strong id="metric-dataset">{{ dataset_version or (benchmark.metrics.dataset_version if benchmark else "n/a") }}</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Leak Rate</span>
+                        <strong id="metric-leak">{{ benchmark.metrics.core_pii_leak_rate if benchmark else "n/a" }}</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Detection Rate</span>
+                        <strong id="metric-detection">{{ benchmark.metrics.pii_detection_rate if benchmark else "n/a" }}</strong>
+                    </div>
+                </div>
+            </header>
+
+            <section class="panel-grid">
+                <article id="panel-auth" class="panel view-section" data-view="dashboard">
+                    <h3>Admin Authentication</h3>
+                    <form id="login-form">
+                        <label>Password</label>
+                        <input id="login-password" type="password" placeholder="admin-pass" />
+                        <button type="submit">Get Token</button>
+                    </form>
+                    <p class="muted">Token is reused for admin-only API calls from this interface.</p>
+                </article>
+
+                <article id="panel-generate" class="panel view-section" data-view="dashboard,generate">
+                    <h3>Generate via Privacy Firewall</h3>
+                    <form id="generate-form">
+                        <label>Prompt</label>
+                        <textarea id="generate-prompt" rows="4" placeholder="Type prompt with/without PII..."></textarea>
+                        <div class="field-row">
+                            <div>
+                                <label>Provider</label>
+                                <input id="generate-provider" value="mock" />
+                            </div>
+                            <div>
+                                <label>Model</label>
+                                <input id="generate-model" placeholder="optional-model" />
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div>
+                                <label>Challenge Threshold</label>
+                                <input id="generate-challenge" type="number" placeholder="optional" />
+                            </div>
+                            <div>
+                                <label>Block Threshold</label>
+                                <input id="generate-block" type="number" placeholder="optional" />
+                            </div>
+                        </div>
+                        <button type="submit">Run Generate</button>
+                    </form>
+                </article>
+
+                <article id="panel-detokenize" class="panel view-section" data-view="generate">
+                    <h3>Admin Detokenize</h3>
+                    <form id="detokenize-form">
+                        <label>Tokenized Text</label>
+                        <textarea id="detokenize-text" rows="4" placeholder="Paste tokenized content..."></textarea>
+                        <button type="submit">Restore Original Text</button>
+                    </form>
+                </article>
+
+                <article id="panel-governance" class="panel view-section" data-view="dashboard,governance">
+                    <h3>Governance Actions</h3>
+                    <div class="field-row">
+                        <div>
+                            <label>Dataset Version</label>
+                            <select id="benchmark-dataset">
+                                {% for version in available_dataset_versions %}
+                                <option value="{{ version }}" {% if version == dataset_version %}selected{% endif %}>{{ version }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label>Split</label>
+                            <select id="benchmark-split">
+                                <option value="all">all</option>
+                                <option value="train">train</option>
+                                <option value="validation">validation</option>
+                                <option value="test">test</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="action-row">
+                        <button id="btn-benchmark" type="button">Run Benchmark</button>
+                        <button id="btn-cross-split" type="button">Cross-Split</button>
+                        <button id="btn-calibrate" type="button">Calibrate</button>
+                        <button id="btn-autotune" type="button">Autotune</button>
+                        <button id="btn-history" type="button">Refresh History</button>
+                        <button id="btn-summary" type="button">Audit Summary</button>
+                    </div>
+                </article>
+            </section>
+
+            <section id="panel-chart" class="panel wide view-section" data-view="dashboard,governance">
+                <h3>Chart Center</h3>
+                <p class="muted">Live product telemetry for privacy quality, policy actions, and benchmark trends.</p>
+                <div class="chart-grid">
+                    <div class="chart-card">
+                        <h4>Privacy Quality Snapshot</h4>
+                        <div id="quality-cards" class="quality-grid"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Policy Action Distribution</h4>
+                        <div id="policy-bars" class="bars"></div>
+                    </div>
+                    <div class="chart-card chart-wide">
+                        <h4>Benchmark Trend Timeline</h4>
+                        <svg id="trend-chart" viewBox="0 0 760 210" role="img" aria-label="Benchmark trend chart"></svg>
+                    </div>
+                </div>
+                <pre id="response-viewer">{{ {"benchmark": benchmark, "calibration": calibration, "autotune": autotune} | tojson(indent=2) }}</pre>
+            </section>
+
+            <section id="panel-audit" class="panel wide view-section" data-view="audit">
+                <h3>Recent Security Audit Events</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Timestamp</th>
+                                <th>Event</th>
+                                <th>Role</th>
+                                <th>Counts</th>
+                                <th>Winner</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in logs %}
+                            <tr>
+                                <td>{{ row.id }}</td>
+                                <td>{{ row.ts }}</td>
+                                <td>{{ row.event_type }}</td>
+                                <td>{{ row.user_role }}</td>
+                                <td>{{ row.count_id }}/{{ row.count_phone }}/{{ row.count_email }}</td>
+                                <td>{{ row.winning_tool or "n/a" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="panel wide view-section" data-view="audit,governance">
+                <h3>Benchmark Trend History</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Dataset</th>
+                                <th>Split</th>
+                                <th>Leak</th>
+                                <th>Utility</th>
+                                <th>Latency</th>
+                                <th>A/C/B</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body">
+                            {% for run in benchmark_history %}
+                            <tr>
+                                <td>{{ run.ts }}</td>
+                                <td>{{ run.dataset_version }}</td>
+                                <td>{{ run.dataset_split }}</td>
+                                <td>{{ run.leak_rate }}</td>
+                                <td>{{ run.utility_score }}</td>
+                                <td>{{ run.latency_ms }}</td>
+                                <td>{{ run.allow_count }}/{{ run.challenge_count }}/{{ run.block_count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="panel wide view-section" data-view="settings">
+                <h3>Operations Settings</h3>
+                <div class="field-row">
+                    <div class="settings-card">
+                        <h4>Provider Mode</h4>
+                        <p class="muted">Use <strong>mock</strong> for offline-safe demos, <strong>openai</strong> for cloud model calls, or <strong>ollama</strong> for local models.</p>
+                        <code>LLM_DEFAULT_PROVIDER=mock|openai|ollama</code>
+                    </div>
+                    <div class="settings-card">
+                        <h4>Security Secrets</h4>
+                        <p class="muted">Set strong runtime secrets in `.env` for production deployment.</p>
+                        <code>JWT_SECRET, AUDIT_HMAC_KEY, PII_VAULT_KEY</code>
+                    </div>
+                </div>
+                <div class="settings-links">
+                    <a href="/healthz" target="_blank" rel="noopener noreferrer">Open Health Endpoint</a>
+                    <a href="/audit/dashboard" target="_blank" rel="noopener noreferrer">Open Full Audit Dashboard</a>
+                </div>
+            </section>
+        </main>
+    </div>
+    <div id="toast" class="toast" aria-live="polite"></div>
+
+    <script>
+        window.__DASHBOARD_BOOTSTRAP__ = {
+            datasetVersion: {{ (dataset_version or "v1") | tojson }},
+            availableDatasets: {{ (available_dataset_versions or []) | tojson }},
+            benchmark: {{ (benchmark or {}) | tojson }},
+            calibration: {{ (calibration or {}) | tojson }},
+            autotune: {{ (autotune or {}) | tojson }},
+            benchmarkHistory: {{ (benchmark_history or []) | tojson }}
+        };
+    </script>
+    <script src="/static/privacy_dashboard.js"></script>
+</body>
+</html>

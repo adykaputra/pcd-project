@@ -1,5 +1,5 @@
-# Use Miniforge as the base image
-FROM condaforge/mambaforge:latest
+# Use Miniforge as the runtime base image
+FROM condaforge/mambaforge:latest AS runtime
 
 # Set the working directory inside the container
 WORKDIR /usr/src/app
@@ -19,21 +19,15 @@ COPY . /usr/src/app
 # Expose the port Flask will run on
 EXPOSE 5000
 
-# Set environment variables (FLASK_APP points to the 'app' variable inside the package)
-ENV FLASK_APP=app:app
-ENV FLASK_ENV=development
+# Set environment variables
+ENV FLASK_APP=app:create_app
+ENV FLASK_ENV=production
 ENV PYTHONPATH=/usr/src/app
 
-# Default command: run Flask inside the conda environment named 'pcd'
-CMD ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "run", "--host=0.0.0.0", "--port=5000"]
+# Default command: production-grade WSGI runtime
+CMD ["conda", "run", "--no-capture-output", "-n", "pcd", "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "120", "app:create_app()"]
 
-# Test stage: create the conda env and run the test suite inside it
-FROM condaforge/mambaforge:latest AS test
-WORKDIR /usr/src/app
-COPY environment.yml .
-RUN conda env create -f environment.yml
-SHELL ["/bin/bash", "-lc"]
-COPY . /usr/src/app
-ENV PYTHONPATH=/usr/src/app
-# Run pytest inside the `pcd` environment; the build will fail if tests fail
-RUN conda run -n pcd pytest -q
+# Optional test stage:
+#   docker build --target test .
+FROM runtime AS test
+RUN conda run -n pcd pytest -q --ignore=pcd-project --ignore-glob='*/pcd-project/*'

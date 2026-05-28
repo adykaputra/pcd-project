@@ -1,0 +1,34 @@
+services:
+  firewall:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: privacy_firewall_prod
+    environment:
+      - PYTHONPATH=/usr/src/app
+      - FLASK_ENV=production
+      - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:-mock}
+      - JWT_SECRET=${JWT_SECRET}
+      - AUDIT_HMAC_KEY=${AUDIT_HMAC_KEY}
+      - PII_VAULT_KEY=${PII_VAULT_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_DEFAULT_MODEL=${OPENAI_DEFAULT_MODEL:-gpt-4o-mini}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:-llama3.2:3b}
+      - OLLAMA_TIMEOUT_SECONDS=${OLLAMA_TIMEOUT_SECONDS:-90}
+    ports:
+      - "5100:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - firewall_data:/usr/src/app/data
+    healthcheck:
+      test: ["CMD", "conda", "run", "--no-capture-output", "-n", "pcd", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=3).read()"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  firewall_data:

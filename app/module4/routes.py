@@ -47,7 +47,12 @@ def summary():
 def dashboard():
     # Dashboard optionally takes a token query param for the frontend to call /audit/summary
     from .dashboard import render_dashboard
-    import sqlite3
+    from app.privacy_benchmark import run_privacy_benchmark
+    from app.privacy_calibration import calibrate_policy_thresholds
+    from app.privacy_autotune import recommend_thresholds_from_audit
+    from app.privacy_benchmark_history import get_benchmark_history_manager
+    from app.privacy_policy_config import get_policy_thresholds
+    from app.privacy_benchmark_dataset import list_dataset_versions
     
     # Fetch recent audit logs to display
     mgr = get_manager()
@@ -85,7 +90,26 @@ def dashboard():
             'signature': row[14],
         })
     
-    return render_dashboard(logs=logs), 200
+    dataset_version = "v2" if "v2" in list_dataset_versions() else "v1"
+    benchmark = run_privacy_benchmark(dataset_version=dataset_version, split="all")
+    calibration = calibrate_policy_thresholds(dataset_version=dataset_version, split="validation")
+    autotune = recommend_thresholds_from_audit()
+    history_mgr = get_benchmark_history_manager()
+    history = history_mgr.list_runs(limit=20)
+    if not history:
+        history_mgr.record_run(benchmark)
+        history = history_mgr.list_runs(limit=20)
+    return render_dashboard(
+        logs=logs,
+        benchmark=benchmark,
+        calibration=calibration,
+        autotune=autotune,
+        benchmark_history=history,
+        policy_thresholds=get_policy_thresholds(),
+        dataset_version=dataset_version,
+        available_dataset_versions=list_dataset_versions(),
+        initial_token=request.args.get("token"),
+    ), 200
 
 
 # Immutability note:

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Firewall - Client Chat</title>
+    <link rel="stylesheet" href="/static/client_chat.css" />
+</head>
+<body>
+    <div class="chat-shell">
+        <aside class="sidebar">
+            <h1>Client Assistant</h1>
+            <p>Welcome, <strong>{{ display_name }}</strong></p>
+            <ul>
+                <li>PII is tokenized before model dispatch.</li>
+                <li>High-risk prompts are challenged or blocked.</li>
+                <li>Ask freely without exposing private identifiers.</li>
+            </ul>
+            <a href="/">Back to Role Portal</a>
+        </aside>
+
+        <main class="chat-main">
+            <header>
+                <h2>Privacy-Protected Chat</h2>
+                <span id="policy-indicator" class="badge neutral">ready</span>
+            </header>
+
+            <section id="messages" class="messages">
+                <div class="message system">
+                    <p>Hi {{ display_name }}, I am your privacy-safe AI assistant. I will protect personal identifiers before responding.</p>
+                </div>
+            </section>
+
+            <form id="chat-form" class="composer">
+                <textarea id="chat-input" rows="3" placeholder="Type your request here..."></textarea>
+                <div class="composer-row">
+                    <label>
+                        Provider
+                        <input id="provider" value="mock" />
+                    </label>
+                    <label>
+                        Model (optional)
+                        <input id="model" placeholder="optional-model" />
+                    </label>
+                    <button type="submit">Send</button>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <script>
+        window.__CLIENT_BOOTSTRAP__ = { displayName: {{ (display_name or "Client") | tojson }} };
+    </script>
+    <script src="/static/client_chat.js"></script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Firewall - Role Portal</title>
+    <link rel="stylesheet" href="/static/client_portal.css" />
+</head>
+<body>
+    <main class="portal-shell">
+        <section class="hero">
+            <h1>LLM Privacy Firewall</h1>
+            <p>Choose your role to continue. Clients use the AI assistant; admins manage policy, audit, and governance.</p>
+        </section>
+
+        <section class="card-grid">
+            <article class="card">
+                <h2>Client Access</h2>
+                <p>Open the privacy-protected AI assistant.</p>
+                <form action="/client" method="get">
+                    <label for="client-name">Display Name</label>
+                    <input id="client-name" name="name" placeholder="e.g. Aisyah" maxlength="40" />
+                    <button type="submit">Enter Client Chat</button>
+                </form>
+            </article>
+
+            <article class="card">
+                <h2>Admin Access</h2>
+                <p>Authenticate to access command center and governance controls.</p>
+                <form id="admin-login-form">
+                    <label for="admin-password">Admin Password</label>
+                    <input id="admin-password" type="password" placeholder="admin-pass" />
+                    <button type="submit">Open Admin Dashboard</button>
+                </form>
+                <p id="admin-error" class="error"></p>
+            </article>
+        </section>
+    </main>
+
+    <script src="/static/client_portal.js"></script>
+</body>
+</html>

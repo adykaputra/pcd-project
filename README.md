@@ -1,6 +1,64 @@
-# Flask Docker Application with Multiple Modules
+# LLM Privacy Firewall - Final Product
 
-This project demonstrates a **Flask web application** structured with **3 modules** using **Flask blueprints**, a **Docker setup** for easy containerization, and **data volume mounting** for persistent data storage.
+Production-ready Flask gateway that protects prompts before they reach LLM providers.
+
+## Final Product Snapshot
+
+This system is now shipped as a full product surface:
+
+- **Privacy Firewall Gateway**: tokenizes/redacts PII before model dispatch.
+- **Policy Engine**: risk scores each prompt and enforces allow/challenge/block.
+- **Reversible Privacy Vault**: admin-only detokenization for legal/compliance workflows.
+- **Adversarial Benchmarking Suite**: evaluates leak rate, utility, latency, and policy accuracy.
+- **Governance UI (dark high-fidelity dashboard)**: auth, generate, benchmark, calibration, autotune, history, and live chart center.
+- **Deployable Containers**:
+  - `docker-compose.yml` for development.
+  - `docker-compose.prod.yml` for production-style runtime.
+
+## Quick Deploy (Production Profile)
+
+1. Create runtime secrets:
+
+```bash
+cp .env.example .env
+# edit .env with strong random secrets
+```
+
+2. Build and run:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+3. Verify health:
+
+```bash
+curl http://localhost:5100/healthz
+```
+
+4. Open dashboard:
+
+`http://localhost:5100/`
+
+5. Run deployment smoke checks:
+
+```bash
+python3 scripts/smoke_test_deploy.py --base-url http://localhost:5100
+```
+
+The production profile uses Gunicorn runtime and health checks, with persisted `data/` volume.
+
+## Client Journey (What a normal user does)
+
+1. Open `http://localhost:5100/`.
+2. Choose **Client Access**.
+3. Enter display name and open the chat page.
+4. Chat via `/client/chat` (privacy firewall runs automatically before model dispatch).
+5. If a prompt is too sensitive, the user receives challenge/deny feedback and can rewrite safely.
+
+## Showcase Guide
+
+- Product narrative and viva walkthrough: `FINAL_PRODUCT_SHOWCASE.md`
 
 ## Project Structure
 
@@ -89,13 +147,13 @@ pip install -r requirements.txt
 docker-compose up --build
 ```
 
-2. **Access the application** in your browser at `http://localhost:5000`.
+2. **Access the application** in your browser at `http://localhost:5100`.
 
-   * **Module 1**: `http://localhost:5000/module1`
-   * **Module 2**: `http://localhost:5000/module2`
-   * **Module 3**: `http://localhost:5000/module3`
+   * **Module 1**: `http://localhost:5100/module1`
+   * **Module 2**: `http://localhost:5100/module2`
+   * **Module 3**: `http://localhost:5100/module3`
 
-   You can also access the data from the `/data` endpoint in **Module 3** (`http://localhost:5000/module3/data`).
+   You can also access the data from the `/data` endpoint in **Module 3** (`http://localhost:5100/module3/data`).
 
 ---
 
@@ -139,10 +197,10 @@ The `data/` folder is **mounted as a volume** inside the container, which ensure
 
 You can test individual modules by sending HTTP requests to the endpoints:
 
-* **Module 1**: `http://localhost:5000/module1`
-* **Module 2**: `http://localhost:5000/module2`
-* **Module 3**: `http://localhost:5000/module3`
-* **Module 3 Data**: `http://localhost:5000/module3/data`
+* **Module 1**: `http://localhost:5100/module1`
+* **Module 2**: `http://localhost:5100/module2`
+* **Module 3**: `http://localhost:5100/module3`
+* **Module 3 Data**: `http://localhost:5100/module3/data`
 
 To add unit tests, create test files inside the `tests/` directory. You can use **pytest** or any other testing framework.
 
@@ -150,7 +208,19 @@ To add unit tests, create test files inside the `tests/` directory. You can use 
 
 ## Running in Production
 
-For production environments, you can use a WSGI server like **Gunicorn** and deploy behind a reverse proxy like **Nginx**. A production-grade setup would require additional configurations for better performance, security, and scalability.
+This repo includes a production-style compose file with Gunicorn:
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Recommended hardening before internet exposure:
+
+- Put Nginx/Caddy/Cloud Load Balancer in front (TLS + rate limits).
+- Replace default JWT/audit/vault secrets in `.env`.
+- Set `LLM_DEFAULT_PROVIDER=openai` only after configuring `OPENAI_API_KEY`.
+- Keep persistent `data/` volume backups (vault + audit + benchmark history).
 
 ---
 
@@ -159,32 +229,162 @@ For production environments, you can use a WSGI server like **Gunicorn** and dep
 1. Login to get an admin token (default password: `admin-pass`):
 
 ```bash
-curl -X POST http://localhost:5000/login -H 'Content-Type: application/json' -d '{"password":"admin-pass"}'
+curl -X POST http://localhost:5100/login -H 'Content-Type: application/json' -d '{"password":"admin-pass"}'
 # {"status":"ok","token":"..."}
 ```
 
 2. Sanitize a prompt:
 
 ```bash
-curl -X POST http://localhost:5000/sanitize -H 'Content-Type: application/json' -d '{"role":"client","prompt":"My phone is 012-3456789"}'
+curl -X POST http://localhost:5100/sanitize -H 'Content-Type: application/json' -d '{"role":"client","prompt":"My phone is 012-3456789"}'
 # {"status":"sanitized","sanitized_prompt":"My phone is [REDACTED_PHONE]"}
 ```
 
-3. Generate via LLM Proxy (ensure sanitized_prompt is sent):
+3. Generate via Privacy Firewall (raw prompts are tokenized before LLM dispatch):
 
 ```bash
-curl -X POST http://localhost:5000/generate -H 'Content-Type: application/json' -d '{"sanitized_prompt":"Hello world"}'
+curl -X POST http://localhost:5100/generate -H 'Content-Type: application/json' -d '{"prompt":"Ali from KL, phone 012-3456789, email ali@example.com"}'
+# Response can be:
+# - {"status":"ok", ...}       -> forwarded to LLM
+# - {"status":"challenge", ...} -> medium-risk, requires review
+# - {"status":"denied", ...}    -> high-risk blocked by policy engine
 ```
 
-4. View audit summary (admin only):
+### LLM provider modes (important for demo success)
+
+- **Default mode (`mock`)**: works offline and does not require any API key/plugin.  
+  This is the recommended mode for viva/demo reliability.
+- **Online mode (`openai`)**: requires the OpenAI SDK and `OPENAI_API_KEY`.
+- **Local model mode (`ollama`)**: runs on your machine with no per-request API billing.
+
+Use OpenAI explicitly:
 
 ```bash
-curl -H 'Authorization: Bearer <token>' http://localhost:5000/audit/summary
+curl -X POST http://localhost:5100/generate \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"Explain hashing", "provider":"openai", "model":"gpt-4o-mini"}'
 ```
 
-5. Dashboard (passes token via query):
+If OpenAI is unavailable, the service now safely falls back to `mock` mode so the UI still works.
 
-Open in browser: `http://localhost:5000/audit/dashboard?token=<token>`
+Use Ollama explicitly:
+
+```bash
+curl -X POST http://localhost:5100/generate \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"Explain hashing", "provider":"ollama", "model":"llama3.2:3b"}'
+```
+
+4. (Admin only) Detokenize for legal/audit workflows:
+
+```bash
+curl -X POST http://localhost:5100/detokenize \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <admin-token>' \
+  -d '{"text":"[NAME_...], phone [PHONE_...], email [EMAIL_...]"}'
+```
+
+5. View audit summary (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' http://localhost:5100/audit/summary
+```
+
+6. Dashboard (passes token via query):
+
+Open in browser: `http://localhost:5100/audit/dashboard?token=<token>`
+
+7. High-fidelity prototype landing page:
+
+Open in browser: `http://localhost:5100/`
+
+7. Run adversarial privacy benchmark (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' http://localhost:5100/privacy/benchmark
+```
+
+8. Get policy threshold calibration recommendation (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' http://localhost:5100/privacy/calibrate
+```
+
+9. Optional: use real OpenAI provider (online mode):
+
+```bash
+pip install openai
+export OPENAI_API_KEY=your_api_key_here
+```
+
+10. Optional: run local Ollama provider (free-ish local inference):
+
+```bash
+ollama serve
+ollama pull llama3.2:3b
+export LLM_DEFAULT_PROVIDER=ollama
+export OLLAMA_BASE_URL=http://localhost:11434
+export OLLAMA_DEFAULT_MODEL=llama3.2:3b
+```
+
+11. Optional: enable spaCy NER backend (Phase 3):
+
+```bash
+pip install spacy
+python -m spacy download en_core_web_sm
+export PRIVACY_NER_BACKEND=spacy
+export PRIVACY_NER_MODEL=en_core_web_sm
+```
+
+12. Optional: enable transformer NER backend (Phase 4):
+
+```bash
+pip install transformers torch
+export PRIVACY_NER_BACKEND=transformer
+export PRIVACY_NER_TRANSFORMER_MODEL=dslim/bert-base-NER
+```
+
+13. Auto-tune policy thresholds from audit telemetry (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/autotune?hours=168&min_samples=10'
+```
+
+14. View benchmark trend history (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark/history?limit=20'
+```
+
+15. List benchmark dataset versions (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark/datasets'
+```
+
+16. Run multilingual benchmark dataset v2 (admin only):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark?dataset_version=v2&split=all'
+```
+
+17. Run cross-split evaluation (train/validation/test):
+
+```bash
+curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark?dataset_version=v2&mode=cross_split&persist=0'
+```
+
+18. Run local benchmark gate (same logic as CI):
+
+```bash
+python3 scripts/check_benchmark_gate.py --dataset-version v2 --split all
+```
+
+19. Generate reproducible phase6 evaluation artifacts:
+
+```bash
+python3 scripts/run_phase6_evaluation.py
+```
 
 ---
 

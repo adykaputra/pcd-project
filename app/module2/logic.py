@@ -1,6 +1,8 @@
 """PII redaction logic for Module 2 (Privacy Shield) - Redaction Reliability Comparison System."""
 import re
 from typing import Dict, Tuple, Any
+from app.privacy_vault import get_vault
+from app.privacy_ner import detect_named_entities
 
 # Compile regex patterns for Tool A (Advanced Regex)
 # Match Malaysian IC numbers (YYMMDD-XX-XXXX) with or without dashes and validate month (01-12) and day (01-31)
@@ -19,6 +21,8 @@ COMMON_LOCATIONS = {
     'kelantan', 'pahang', 'perlis', 'sabah', 'sarawak', 'putrajaya', 'labuan', 'kl', 'jb',
     'malaysia', 'ampang', 'petaling jaya', 'subang', 'klang', 'shah alam'
 }
+
+TOKEN_RE = re.compile(r"\[(?:ID|PHONE|EMAIL|NAME|LOCATION|ORG)_[A-F0-9]{12}\]")
 
 
 def _tool_a_regex_redaction(text: str) -> Tuple[str, Dict[str, int]]:
@@ -142,6 +146,221 @@ def run_redaction_jury(text: str) -> Dict[str, Any]:
             "B": counts_b,
             "C": counts_c,
         },
+    }
+
+
+def sanitize_prompt_for_llm(text: str) -> Dict[str, Any]:
+    """Apply layered PII redaction before forwarding content to any LLM.
+
+    This function is stricter than ``run_redaction_jury`` because it is used as a
+    final privacy boundary before model calls. It applies multiple detectors in
+    sequence so PII categories covered by different tools are cumulatively
+    removed.
+    """
+    if not text:
+        return {
+            "sanitized_prompt": text,
+            "had_pii": False,
+            "remaining_pii_counts": {"id": 0, "phone": 0, "email": 0},
+            "tool_counts": {
+                "A": {"id": 0, "phone": 0, "email": 0},
+                "B": {"id": 0, "phone": 0, "email": 0},
+                "C": {"id": 0, "phone": 0, "email": 0},
+            },
+        }
+
+    # Layer detections to avoid relying on a single winning tool.
+    redacted, counts_a = _tool_a_regex_redaction(text)
+    redacted, counts_b = _tool_b_dictionary_redaction(redacted)
+    redacted, counts_c = _tool_c_mock_ai_redaction(redacted)
+
+    # Final deterministic pass for core identifiers.
+    redacted = redact_pii(redacted)
+    remaining = detect_pii_counts(redacted)
+
+    return {
+        "sanitized_prompt": redacted,
+        "had_pii": redacted != text,
+        "remaining_pii_counts": remaining,
+        "tool_counts": {
+            "A": counts_a,
+            "B": counts_b,
+            "C": counts_c,
+        },
+    }
+
+
+def _tokenize_regex(text: str, pattern: re.Pattern, pii_type: str) -> Tuple[str, int]:
+    """Replace regex matches with deterministic vault-backed pseudonym tokens."""
+    vault = get_vault()
+    count = 0
+
+    def _replace(match: re.Match) -> str:
+        nonlocal count
+        # Avoid re-tokenizing already tokenized values.
+        value = match.group(0)
+        if TOKEN_RE.fullmatch(value):
+            return value
+        count += 1
+        return vault.get_or_create_token(value=value, pii_type=pii_type).token
+
+    return pattern.sub(_replace, text), count
+
+
+def _tokenize_dictionary_terms(text: str, terms: set, pii_type: str) -> Tuple[str, int]:
+    """Replace dictionary terms (case-insensitive) with vault-backed tokens."""
+    vault = get_vault()
+    redacted = text
+    count = 0
+
+    # Longest-first prevents shorter terms from partially masking longer ones.
+    for term in sorted(terms, key=len, reverse=True):
+        pattern = re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)
+
+        def _replace(match: re.Match) -> str:
+            nonlocal count
+            value = match.group(0)
+            if TOKEN_RE.fullmatch(value):
+                return value
+            count += 1
+            return vault.get_or_create_token(value=value, pii_type=pii_type).token
+
+        redacted = pattern.sub(_replace, redacted)
+
+    return redacted, count
+
+
+def _tokenize_ner_entities(text: str, entities: list) -> Tuple[str, Dict[str, int]]:
+    """Apply vault tokenization using NER-detected entities."""
+    vault = get_vault()
+    redacted = text
+    counts = {"person": 0, "location": 0, "organization": 0}
+
+    label_to_type = {
+        "PERSON": "name",
+        "PER": "name",
+        "GPE": "location",
+        "LOC": "location",
+        "LOCATION": "location",
+        "ORG": "organization",
+        "ORGANIZATION": "organization",
+    }
+
+    # Longest-first replacement avoids partial matches when entities overlap in text.
+    sorted_entities = sorted(
+        [e for e in entities if e.get("label") in label_to_type and e.get("text")],
+        key=lambda e: len(e.get("text", "")),
+        reverse=True,
+    )
+
+    for entity in sorted_entities:
+        label = str(entity.get("label", "")).upper()
+        pii_type = label_to_type.get(label)
+        if not pii_type:
+            continue
+        raw = str(entity.get("text", "")).strip()
+        if not raw:
+            continue
+        replacement = vault.get_or_create_token(value=raw, pii_type=pii_type).token
+        pattern = re.compile(r"\b" + re.escape(raw) + r"\b", re.IGNORECASE)
+
+        def _replace(match: re.Match) -> str:
+            candidate = match.group(0)
+            if TOKEN_RE.fullmatch(candidate):
+                return candidate
+            return replacement
+
+        updated, n = pattern.subn(_replace, redacted)
+        if n > 0:
+            redacted = updated
+            if pii_type == "name":
+                counts["person"] += n
+            elif pii_type == "location":
+                counts["location"] += n
+            elif pii_type == "organization":
+                counts["organization"] += n
+
+    return redacted, counts
+
+
+def tokenize_prompt_for_llm(text: str) -> Dict[str, Any]:
+    """Convert detected PII into stable vault tokens before LLM dispatch.
+
+    Example:
+        "Email ali@example.com" -> "Email [EMAIL_ABC123...]"
+    """
+    if not text:
+        return {
+            "tokenized_prompt": text,
+            "had_pii": False,
+            "token_counts": {
+                "id": 0,
+                "phone": 0,
+                "email": 0,
+                "name": 0,
+                "location": 0,
+                "ner_person": 0,
+                "ner_location": 0,
+                "ner_organization": 0,
+            },
+            "remaining_pii_counts": {"id": 0, "phone": 0, "email": 0},
+            "ner_backend": "none",
+            "ner_entities_detected": 0,
+        }
+
+    tokenized = text
+    tokenized, count_id = _tokenize_regex(tokenized, MALAYSIAN_IC_RE, "id")
+    tokenized, count_phone = _tokenize_regex(tokenized, PHONE_RE, "phone")
+    tokenized, count_email = _tokenize_regex(tokenized, EMAIL_RE, "email")
+    tokenized, count_name = _tokenize_dictionary_terms(tokenized, COMMON_NAMES, "name")
+    tokenized, count_location = _tokenize_dictionary_terms(tokenized, COMMON_LOCATIONS, "location")
+    ner_result = detect_named_entities(text)
+    tokenized, ner_counts = _tokenize_ner_entities(tokenized, ner_result.get("entities", []))
+
+    remaining = detect_pii_counts(tokenized)
+    return {
+        "tokenized_prompt": tokenized,
+        "had_pii": tokenized != text,
+        "token_counts": {
+            "id": count_id,
+            "phone": count_phone,
+            "email": count_email,
+            "name": count_name,
+            "location": count_location,
+            "ner_person": ner_counts.get("person", 0),
+            "ner_location": ner_counts.get("location", 0),
+            "ner_organization": ner_counts.get("organization", 0),
+        },
+        "remaining_pii_counts": remaining,
+        "ner_backend": ner_result.get("backend"),
+        "ner_entities_detected": len(ner_result.get("entities", [])),
+    }
+
+
+def detokenize_prompt_from_vault(text: str) -> Dict[str, Any]:
+    """Resolve vault tokens back to source values (admin workflows only)."""
+    if not text:
+        return {"detokenized_text": text, "resolved_tokens": 0, "unresolved_tokens": []}
+
+    vault = get_vault()
+    unresolved = []
+    resolved_count = 0
+
+    def _replace(match: re.Match) -> str:
+        nonlocal resolved_count
+        token = match.group(0)
+        value = vault.resolve_token(token)
+        if value is None:
+            unresolved.append(token)
+            return token
+        resolved_count += 1
+        return value
+
+    detokenized = TOKEN_RE.sub(_replace, text)
+    return {
+        "detokenized_text": detokenized,
+        "resolved_tokens": resolved_count,
+        "unresolved_tokens": unresolved,
     }
 
 
