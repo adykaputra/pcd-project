@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 
 class BaseLLMAdapter(ABC):
     def __init__(self, model: Optional[str] = None, **kwargs):
-        self.model = model or "default"
+        self.model = model
         self.provider_name = "base"
 
     @abstractmethod
@@ -39,34 +39,41 @@ class OpenAIAdapter(BaseLLMAdapter):
             raise RuntimeError("OpenAI provider unavailable: missing SDK or OPENAI_API_KEY")
 
         # Support both OpenAI SDK v1 and legacy SDK APIs.
+        model_name = self.model or os.getenv("OPENAI_DEFAULT_MODEL", "gpt-4o-mini")
         if hasattr(self._openai, "OpenAI"):
-            client = self._openai.OpenAI(api_key=self.api_key)
-            resp = client.chat.completions.create(
-                model=self.model or "gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-            )
-            text = ""
-            if getattr(resp, "choices", None):
-                message = resp.choices[0].message
-                text = getattr(message, "content", "") or ""
-            usage_obj = getattr(resp, "usage", None)
-            usage = {
-                "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
-                "completion_tokens": getattr(usage_obj, "completion_tokens", None),
-                "total_tokens": getattr(usage_obj, "total_tokens", None),
-            } if usage_obj else {}
-            return {"text": text, "usage": usage}
+            try:
+                client = self._openai.OpenAI(api_key=self.api_key)
+                resp = client.chat.completions.create(
+                    model=model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                text = ""
+                if getattr(resp, "choices", None):
+                    message = resp.choices[0].message
+                    text = getattr(message, "content", "") or ""
+                usage_obj = getattr(resp, "usage", None)
+                usage = {
+                    "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
+                    "completion_tokens": getattr(usage_obj, "completion_tokens", None),
+                    "total_tokens": getattr(usage_obj, "total_tokens", None),
+                } if usage_obj else {}
+                return {"text": text, "usage": usage}
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError(f"OpenAI chat completion failed for model '{model_name}': {exc}") from exc
 
         # Legacy openai-python path.
-        self._openai.api_key = self.api_key
-        resp = self._openai.ChatCompletion.create(
-            model=self.model or "gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        choices = resp.get("choices", [])
-        text = choices[0]["message"]["content"] if choices else ""
-        usage = resp.get("usage", {})
-        return {"text": text, "usage": usage}
+        try:
+            self._openai.api_key = self.api_key
+            resp = self._openai.ChatCompletion.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            choices = resp.get("choices", [])
+            text = choices[0]["message"]["content"] if choices else ""
+            usage = resp.get("usage", {})
+            return {"text": text, "usage": usage}
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(f"OpenAI chat completion failed for model '{model_name}': {exc}") from exc
 
 
 class MockAdapter(BaseLLMAdapter):
