@@ -1,7 +1,7 @@
 import os
 import jwt
 from datetime import datetime
-from flask import Blueprint, request, jsonify, current_app, redirect, url_for
+from flask import Blueprint, request, jsonify, current_app, render_template, redirect, url_for
 from app.audit import get_manager
 from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_vault
 from app.privacy_risk import evaluate_prompt_risk
@@ -17,8 +17,15 @@ bp = Blueprint('module3', __name__)
 
 @bp.route('/', methods=['GET'])
 def landing():
-    """Convenience landing route for the high-fidelity prototype."""
-    return redirect(url_for("module4.dashboard"))
+    """Role-based product entry point (client vs admin)."""
+    return render_template("entry_portal.html"), 200
+
+
+@bp.route('/client', methods=['GET'])
+def client_portal():
+    """Client-facing chat UI."""
+    display_name = (request.args.get("name") or "Client").strip()[:40]
+    return render_template("client_chat.html", display_name=display_name), 200
 
 
 @bp.route('/healthz', methods=['GET'])
@@ -69,36 +76,15 @@ def _is_admin_request(req) -> bool:
     return role == 'admin'
 
 
-@bp.route('/generate', methods=['POST'])
-def generate():
-    """Privacy firewall endpoint that tokenizes PII before LLM dispatch.
-
-    Expected input JSON:
-      { "prompt": "...", "model": "optional-model-name" }
-      or legacy:
-      { "sanitized_prompt": "...", "model": "optional-model-name" }
-
-    Behavior:
-      - Accept `prompt` (preferred) or `sanitized_prompt` (legacy).
-      - Always run vault tokenization before forwarding to the LLM.
-      - Reject requests if core PII patterns still remain after tokenization.
-      - Run risk policy engine (allow/challenge/block) before LLM forwarding.
-      - Optional threshold overrides via payload fields:
-          `policy_challenge_threshold`, `policy_block_threshold`.
-      - Forward only tokenized prompt to the LLM backend.
-      - Return the model response.
-    """
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"status": "denied", "message": "Invalid request: JSON body required"}), 400
-
-    raw_prompt = data.get('prompt')
-    legacy_prompt = data.get('sanitized_prompt')
-    inbound_prompt = raw_prompt if isinstance(raw_prompt, str) else legacy_prompt
-    if not inbound_prompt or not isinstance(inbound_prompt, str):
-        return jsonify({"status": "denied", "message": "Invalid request: prompt is required"}), 400
-
-    # Enforce pseudonymization at the LLM boundary.
+def _run_firewall_pipeline(
+    *,
+    inbound_prompt: str,
+    provider: str,
+    model: str | None,
+    challenge_override: int | None = None,
+    block_override: int | None = None,
+):
+    """Run tokenization, policy evaluation, and provider dispatch."""
     tokenization = tokenize_prompt_for_llm(inbound_prompt)
     tokenized_prompt = tokenization["tokenized_prompt"]
     remaining = tokenization["remaining_pii_counts"]
@@ -113,14 +99,7 @@ def generate():
                 "endpoint": request.path,
             },
         )
-        return jsonify({"status": "denied", "message": "Request contains PII after sanitization. Aborting."}), 400
-
-    challenge_override = data.get("policy_challenge_threshold")
-    block_override = data.get("policy_block_threshold")
-    if challenge_override is not None and not isinstance(challenge_override, int):
-        return jsonify({"status": "denied", "message": "policy_challenge_threshold must be integer"}), 400
-    if block_override is not None and not isinstance(block_override, int):
-        return jsonify({"status": "denied", "message": "policy_block_threshold must be integer"}), 400
+        return {"status": "denied", "message": "Request contains PII after sanitization. Aborting."}, 400
 
     risk = evaluate_prompt_risk(
         original_prompt=inbound_prompt,
@@ -141,11 +120,12 @@ def generate():
                 "metadata": {"risk": risk},
             },
         )
-        return jsonify({
+        return {
             "status": "denied",
             "message": "Prompt blocked by privacy policy engine.",
             "risk_assessment": risk,
-        }), 403
+        }, 403
+
     if risk["policy_action"] == "challenge":
         from flask import g
         current_app.logger.warning(
@@ -158,14 +138,11 @@ def generate():
                 "metadata": {"risk": risk},
             },
         )
-        return jsonify({
+        return {
             "status": "challenge",
             "message": "Prompt requires human review before LLM forwarding.",
             "risk_assessment": risk,
-        }), 409
-
-    provider = data.get('provider', os.getenv("LLM_DEFAULT_PROVIDER", "mock"))
-    model = data.get('model', None)
+        }, 409
 
     from flask import g
     current_app.logger.info(
@@ -196,12 +173,11 @@ def generate():
             provider_name = getattr(adapter, "provider_name", None)
             resolved_provider = provider_name if isinstance(provider_name, str) and provider_name else provider
     except ValueError as e:
-        return jsonify({"status": "denied", "message": str(e)}), 400
+        return {"status": "denied", "message": str(e)}, 400
     except Exception as e:
         current_app.logger.error("[LLM_PROXY] Adapter error: %s", e)
-        return jsonify({"status": "error", "message": "LLM adapter failed to process the request."}), 500
+        return {"status": "error", "message": "LLM adapter failed to process the request."}, 500
 
-    # Log token usage if present
     usage = result.get("usage") or {}
     if usage:
         from flask import g
@@ -217,7 +193,7 @@ def generate():
             },
         )
 
-    return jsonify({
+    return {
         "status": "ok",
         "provider": resolved_provider,
         "model": model,
@@ -231,7 +207,109 @@ def generate():
             "ner_entities_detected": tokenization.get("ner_entities_detected"),
         },
         "risk_assessment": risk,
-    }), 200
+    }, 200
+
+
+@bp.route('/generate', methods=['POST'])
+def generate():
+    """Privacy firewall endpoint that tokenizes PII before LLM dispatch.
+
+    Expected input JSON:
+      { "prompt": "...", "model": "optional-model-name" }
+      or legacy:
+      { "sanitized_prompt": "...", "model": "optional-model-name" }
+
+    Behavior:
+      - Accept `prompt` (preferred) or `sanitized_prompt` (legacy).
+      - Always run vault tokenization before forwarding to the LLM.
+      - Reject requests if core PII patterns still remain after tokenization.
+      - Run risk policy engine (allow/challenge/block) before LLM forwarding.
+      - Optional threshold overrides via payload fields:
+          `policy_challenge_threshold`, `policy_block_threshold`.
+      - Forward only tokenized prompt to the LLM backend.
+      - Return the model response.
+    """
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"status": "denied", "message": "Invalid request: JSON body required"}), 400
+
+    raw_prompt = data.get('prompt')
+    legacy_prompt = data.get('sanitized_prompt')
+    inbound_prompt = raw_prompt if isinstance(raw_prompt, str) else legacy_prompt
+    if not inbound_prompt or not isinstance(inbound_prompt, str):
+        return jsonify({"status": "denied", "message": "Invalid request: prompt is required"}), 400
+
+    challenge_override = data.get("policy_challenge_threshold")
+    block_override = data.get("policy_block_threshold")
+    if challenge_override is not None and not isinstance(challenge_override, int):
+        return jsonify({"status": "denied", "message": "policy_challenge_threshold must be integer"}), 400
+    if block_override is not None and not isinstance(block_override, int):
+        return jsonify({"status": "denied", "message": "policy_block_threshold must be integer"}), 400
+
+    provider = data.get('provider', os.getenv("LLM_DEFAULT_PROVIDER", "mock"))
+    model = data.get('model', None)
+    payload, status_code = _run_firewall_pipeline(
+        inbound_prompt=inbound_prompt,
+        provider=provider,
+        model=model,
+        challenge_override=challenge_override,
+        block_override=block_override,
+    )
+    return jsonify(payload), status_code
+
+
+@bp.route('/client/chat', methods=['POST'])
+def client_chat():
+    """Client-facing chat endpoint backed by the privacy firewall."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"status": "denied", "message": "Invalid request: JSON body required"}), 400
+
+    prompt = data.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        return jsonify({"status": "denied", "message": "Prompt is required"}), 400
+
+    provider = data.get("provider", os.getenv("LLM_DEFAULT_PROVIDER", "mock"))
+    model = data.get("model")
+    payload, status_code = _run_firewall_pipeline(
+        inbound_prompt=prompt.strip(),
+        provider=provider,
+        model=model,
+    )
+
+    if status_code == 200:
+        return jsonify(
+            {
+                "status": "ok",
+                "reply": payload.get("response"),
+                "provider": payload.get("provider"),
+                "offline_mode": payload.get("offline_mode", False),
+                "risk_assessment": payload.get("risk_assessment"),
+                "tokenization": payload.get("tokenization"),
+            }
+        ), 200
+
+    if status_code == 409:
+        return jsonify(
+            {
+                "status": "challenge",
+                "reply": "I detected sensitive details. Please remove personal identifiers and try again.",
+                "message": payload.get("message"),
+                "risk_assessment": payload.get("risk_assessment"),
+            }
+        ), 409
+
+    if status_code == 403:
+        return jsonify(
+            {
+                "status": "denied",
+                "reply": "I cannot process that request because it is too sensitive under privacy policy.",
+                "message": payload.get("message"),
+                "risk_assessment": payload.get("risk_assessment"),
+            }
+        ), 403
+
+    return jsonify(payload), status_code
 
 
 @bp.route('/detokenize', methods=['POST'])

@@ -48,6 +48,14 @@ python3 scripts/smoke_test_deploy.py --base-url http://localhost:5100
 
 The production profile uses Gunicorn runtime and health checks, with persisted `data/` volume.
 
+## Client Journey (What a normal user does)
+
+1. Open `http://localhost:5100/`.
+2. Choose **Client Access**.
+3. Enter display name and open the chat page.
+4. Chat via `/client/chat` (privacy firewall runs automatically before model dispatch).
+5. If a prompt is too sensitive, the user receives challenge/deny feedback and can rewrite safely.
+
 ## Showcase Guide
 
 - Product narrative and viva walkthrough: `FINAL_PRODUCT_SHOWCASE.md`

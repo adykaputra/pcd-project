@@ -1,0 +1,104 @@
+:root {
+  --bg: #060b18;
+  --panel: #111935;
+  --panel-2: #172245;
+  --border: #304471;
+  --text: #e8eeff;
+  --muted: #94a8d4;
+  --accent: #4cc9f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Inter, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(circle at top left, #1d2a5c 0%, var(--bg) 50%);
+  color: var(--text);
+}
+
+.portal-shell {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 2.5rem 1.2rem 2rem;
+}
+
+.hero h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 760px;
+}
+
+.card-grid {
+  margin-top: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem;
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+}
+
+.card h2 {
+  margin: 0 0 0.35rem;
+}
+
+.card p {
+  margin: 0 0 0.8rem;
+  color: var(--muted);
+}
+
+form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.65rem;
+  background: #0d1530;
+  color: var(--text);
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.62rem 0.8rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), #22d3ee);
+  color: #011221;
+  cursor: pointer;
+}
+
+.error {
+  margin-top: 0.6rem;
+  color: #fda4af;
+  min-height: 1.1rem;
+}
+
+@media (max-width: 820px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+}
