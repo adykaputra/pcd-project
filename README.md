@@ -255,6 +255,7 @@ curl -X POST http://localhost:5100/generate -H 'Content-Type: application/json' 
 - **Default mode (`mock`)**: works offline and does not require any API key/plugin.  
   This is the recommended mode for viva/demo reliability.
 - **Online mode (`openai`)**: requires the OpenAI SDK and `OPENAI_API_KEY`.
+- **Local model mode (`ollama`)**: runs on your machine with no per-request API billing.
 
 Use OpenAI explicitly:
 
@@ -265,6 +266,14 @@ curl -X POST http://localhost:5100/generate \
 ```
 
 If OpenAI is unavailable, the service now safely falls back to `mock` mode so the UI still works.
+
+Use Ollama explicitly:
+
+```bash
+curl -X POST http://localhost:5100/generate \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"Explain hashing", "provider":"ollama", "model":"llama3.2:3b"}'
+```
 
 4. (Admin only) Detokenize for legal/audit workflows:
 
@@ -308,7 +317,17 @@ pip install openai
 export OPENAI_API_KEY=your_api_key_here
 ```
 
-10. Optional: enable spaCy NER backend (Phase 3):
+10. Optional: run local Ollama provider (free-ish local inference):
+
+```bash
+ollama serve
+ollama pull llama3.2:3b
+export LLM_DEFAULT_PROVIDER=ollama
+export OLLAMA_BASE_URL=http://localhost:11434
+export OLLAMA_DEFAULT_MODEL=llama3.2:3b
+```
+
+11. Optional: enable spaCy NER backend (Phase 3):
 
 ```bash
 pip install spacy
@@ -317,7 +336,7 @@ export PRIVACY_NER_BACKEND=spacy
 export PRIVACY_NER_MODEL=en_core_web_sm
 ```
 
-11. Optional: enable transformer NER backend (Phase 4):
+12. Optional: enable transformer NER backend (Phase 4):
 
 ```bash
 pip install transformers torch
@@ -325,43 +344,43 @@ export PRIVACY_NER_BACKEND=transformer
 export PRIVACY_NER_TRANSFORMER_MODEL=dslim/bert-base-NER
 ```
 
-12. Auto-tune policy thresholds from audit telemetry (admin only):
+13. Auto-tune policy thresholds from audit telemetry (admin only):
 
 ```bash
 curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/autotune?hours=168&min_samples=10'
 ```
 
-13. View benchmark trend history (admin only):
+14. View benchmark trend history (admin only):
 
 ```bash
 curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark/history?limit=20'
 ```
 
-14. List benchmark dataset versions (admin only):
+15. List benchmark dataset versions (admin only):
 
 ```bash
 curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark/datasets'
 ```
 
-15. Run multilingual benchmark dataset v2 (admin only):
+16. Run multilingual benchmark dataset v2 (admin only):
 
 ```bash
 curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark?dataset_version=v2&split=all'
 ```
 
-16. Run cross-split evaluation (train/validation/test):
+17. Run cross-split evaluation (train/validation/test):
 
 ```bash
 curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark?dataset_version=v2&mode=cross_split&persist=0'
 ```
 
-17. Run local benchmark gate (same logic as CI):
+18. Run local benchmark gate (same logic as CI):
 
 ```bash
 python3 scripts/check_benchmark_gate.py --dataset-version v2 --split all
 ```
 
-18. Generate reproducible phase6 evaluation artifacts:
+19. Generate reproducible phase6 evaluation artifacts:
 
 ```bash
 python3 scripts/run_phase6_evaluation.py

@@ -3,6 +3,8 @@ import os
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 
+import requests
+
 
 class BaseLLMAdapter(ABC):
     def __init__(self, model: Optional[str] = None, **kwargs):
@@ -98,6 +100,45 @@ class MockAdapter(BaseLLMAdapter):
         }
 
 
+class OllamaAdapter(BaseLLMAdapter):
+    """Local-model adapter backed by an Ollama server."""
+
+    def __init__(self, model: Optional[str] = None, **kwargs):
+        default_model = os.getenv("OLLAMA_DEFAULT_MODEL", "llama3.2:3b")
+        super().__init__(model=model or default_model, **kwargs)
+        self.provider_name = "ollama"
+        self.base_url = (os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434") or "").rstrip("/")
+        self.timeout_s = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "90"))
+
+    def send_prompt(self, prompt: str) -> Dict[str, Any]:
+        endpoint = f"{self.base_url}/api/chat"
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+        }
+        try:
+            response = requests.post(endpoint, json=payload, timeout=self.timeout_s)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise RuntimeError(
+                f"Ollama request failed at {endpoint}. Ensure Ollama is running and model '{self.model}' is available: {exc}"
+            ) from exc
+
+        body = response.json()
+        text = ""
+        if isinstance(body.get("message"), dict):
+            text = body["message"].get("content") or ""
+        if not text:
+            text = body.get("response") or ""
+        usage = {
+            "prompt_tokens": body.get("prompt_eval_count"),
+            "completion_tokens": body.get("eval_count"),
+            "total_tokens": (body.get("prompt_eval_count") or 0) + (body.get("eval_count") or 0),
+        }
+        return {"text": text, "usage": usage, "provider": "ollama"}
+
+
 def get_adapter(
     provider: str = "openai",
     model: Optional[str] = None,
@@ -115,4 +156,6 @@ def get_adapter(
         raise RuntimeError("OpenAI provider unavailable and fallback disabled")
     if provider == "mock":
         return MockAdapter(model=model, **kwargs)
+    if provider == "ollama":
+        return OllamaAdapter(model=model, **kwargs)
     raise ValueError(f"Unknown provider: {provider}")

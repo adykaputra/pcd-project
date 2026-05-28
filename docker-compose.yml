@@ -10,7 +10,12 @@ services:
       - PYTHONPATH=/usr/src/app
       - FLASK_APP=app:create_app
       - FLASK_ENV=development
-      - LLM_DEFAULT_PROVIDER=mock
+      - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:-mock}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_DEFAULT_MODEL=${OPENAI_DEFAULT_MODEL:-gpt-4o-mini}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:-llama3.2:3b}
+      - OLLAMA_TIMEOUT_SECONDS=${OLLAMA_TIMEOUT_SECONDS:-90}
       - JWT_SECRET=${JWT_SECRET:-very-secret}
       - AUDIT_HMAC_KEY=${AUDIT_HMAC_KEY:-audit-secret}
       - PII_VAULT_KEY=${PII_VAULT_KEY:-dev-vault-key-change-me}
@@ -18,6 +23,8 @@ services:
       - ./:/usr/src/app
     ports:
       - "5100:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "--app", "app:create_app", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
     healthcheck:
       test: ["CMD", "conda", "run", "--no-capture-output", "-n", "pcd", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=3).read()"]
