@@ -13,17 +13,20 @@
                 <div class="brand-dot"></div>
                 <div>
                     <h1>Privacy Firewall</h1>
-                    <p>High-Fidelity Prototype</p>
+                    <p>Command Center</p>
                 </div>
             </div>
-            <nav class="nav-links">
-                <a href="#panel-auth">Auth</a>
-                <a href="#panel-generate">Generate</a>
-                <a href="#panel-detokenize">Detokenize</a>
-                <a href="#panel-governance">Governance</a>
-                <a href="#panel-chart">Chart</a>
-                <a href="#panel-audit">Audit Log</a>
+            <nav class="menu-nav">
+                <button class="menu-item active" data-view="dashboard">Dashboard</button>
+                <button class="menu-item" data-view="generate">Generate Lab</button>
+                <button class="menu-item" data-view="governance">Governance</button>
+                <button class="menu-item" data-view="audit">Audit Log</button>
+                <button class="menu-item" data-view="settings">Settings</button>
             </nav>
+            <div class="status-box">
+                <div class="status-pill online">Gateway Online</div>
+                <div class="status-pill secure">Policy Guard Active</div>
+            </div>
             <div class="token-box">
                 <label for="admin-token">Admin JWT</label>
                 <textarea id="admin-token" rows="5" placeholder="Paste token here">{{ initial_token or "" }}</textarea>
@@ -31,7 +34,7 @@
         </aside>
 
         <main class="content">
-            <header class="hero">
+            <header class="hero view-section" data-view="dashboard">
                 <div>
                     <h2>Privacy Operations Command Center</h2>
                     <p>Tokenize before LLM, evaluate risk, enforce policy, and monitor governance in one modern interface.</p>
@@ -53,7 +56,7 @@
             </header>
 
             <section class="panel-grid">
-                <article id="panel-auth" class="panel">
+                <article id="panel-auth" class="panel view-section" data-view="dashboard">
                     <h3>Admin Authentication</h3>
                     <form id="login-form">
                         <label>Password</label>
@@ -63,7 +66,7 @@
                     <p class="muted">Token is reused for admin-only API calls from this interface.</p>
                 </article>
 
-                <article id="panel-generate" class="panel">
+                <article id="panel-generate" class="panel view-section" data-view="dashboard,generate">
                     <h3>Generate via Privacy Firewall</h3>
                     <form id="generate-form">
                         <label>Prompt</label>
@@ -92,7 +95,7 @@
                     </form>
                 </article>
 
-                <article id="panel-detokenize" class="panel">
+                <article id="panel-detokenize" class="panel view-section" data-view="generate">
                     <h3>Admin Detokenize</h3>
                     <form id="detokenize-form">
                         <label>Tokenized Text</label>
@@ -101,7 +104,7 @@
                     </form>
                 </article>
 
-                <article id="panel-governance" class="panel">
+                <article id="panel-governance" class="panel view-section" data-view="dashboard,governance">
                     <h3>Governance Actions</h3>
                     <div class="field-row">
                         <div>
@@ -133,7 +136,7 @@
                 </article>
             </section>
 
-            <section id="panel-chart" class="panel wide">
+            <section id="panel-chart" class="panel wide view-section" data-view="dashboard,governance">
                 <h3>Chart Center</h3>
                 <p class="muted">Live product telemetry for privacy quality, policy actions, and benchmark trends.</p>
                 <div class="chart-grid">
@@ -153,7 +156,7 @@
                 <pre id="response-viewer">{{ {"benchmark": benchmark, "calibration": calibration, "autotune": autotune} | tojson(indent=2) }}</pre>
             </section>
 
-            <section id="panel-audit" class="panel wide">
+            <section id="panel-audit" class="panel wide view-section" data-view="audit">
                 <h3>Recent Security Audit Events</h3>
                 <div class="table-wrap">
                     <table>
@@ -183,7 +186,7 @@
                 </div>
             </section>
 
-            <section class="panel wide">
+            <section class="panel wide view-section" data-view="audit,governance">
                 <h3>Benchmark Trend History</h3>
                 <div class="table-wrap">
                     <table>
@@ -214,8 +217,29 @@
                     </table>
                 </div>
             </section>
+
+            <section class="panel wide view-section" data-view="settings">
+                <h3>Operations Settings</h3>
+                <div class="field-row">
+                    <div class="settings-card">
+                        <h4>Provider Mode</h4>
+                        <p class="muted">Use <strong>mock</strong> for offline-safe demos and <strong>openai</strong> for live model calls.</p>
+                        <code>LLM_DEFAULT_PROVIDER=mock|openai</code>
+                    </div>
+                    <div class="settings-card">
+                        <h4>Security Secrets</h4>
+                        <p class="muted">Set strong runtime secrets in `.env` for production deployment.</p>
+                        <code>JWT_SECRET, AUDIT_HMAC_KEY, PII_VAULT_KEY</code>
+                    </div>
+                </div>
+                <div class="settings-links">
+                    <a href="/healthz" target="_blank" rel="noopener noreferrer">Open Health Endpoint</a>
+                    <a href="/audit/dashboard" target="_blank" rel="noopener noreferrer">Open Full Audit Dashboard</a>
+                </div>
+            </section>
         </main>
     </div>
+    <div id="toast" class="toast" aria-live="polite"></div>
 
     <script>
         window.__DASHBOARD_BOOTSTRAP__ = {

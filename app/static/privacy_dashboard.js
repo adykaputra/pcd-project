@@ -6,11 +6,36 @@
   const qualityCards = document.getElementById("quality-cards");
   const policyBars = document.getElementById("policy-bars");
   const trendChart = document.getElementById("trend-chart");
+  const toastNode = document.getElementById("toast");
+  const viewButtons = Array.from(document.querySelectorAll(".menu-item[data-view]"));
+  const viewSections = Array.from(document.querySelectorAll(".view-section"));
   const bootstrap = window.__DASHBOARD_BOOTSTRAP__ || {};
 
   function setViewer(title, payload) {
     const body = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
     viewer.textContent = `${title}\n${"=".repeat(title.length)}\n${body}`;
+  }
+
+  function showToast(message, type = "success") {
+    if (!toastNode) return;
+    toastNode.textContent = message;
+    toastNode.className = `toast show ${type}`;
+    window.clearTimeout(showToast._timer);
+    showToast._timer = window.setTimeout(() => {
+      toastNode.className = "toast";
+    }, 2000);
+  }
+
+  function setActiveView(nextView) {
+    viewButtons.forEach((button) => {
+      button.classList.toggle("active", button.dataset.view === nextView);
+    });
+    viewSections.forEach((section) => {
+      const views = String(section.dataset.view || "dashboard")
+        .split(",")
+        .map((item) => item.trim());
+      section.hidden = !(views.includes(nextView) || views.includes("all"));
+    });
   }
 
   function getToken() {
@@ -250,9 +275,11 @@
       });
       if (tokenInput) tokenInput.value = payload.token || "";
       setViewer("Login Success", payload);
+      showToast("Admin token acquired.", "success");
       await refreshDatasetVersions();
     } catch (err) {
       setViewer("Login Error", { status: "error", message: String(err) });
+      showToast("Login failed.", "error");
     }
   });
 
@@ -273,8 +300,10 @@
       const response = await callApi("/generate", { method: "POST", body: payload });
       setViewer("Generate Result", response);
       renderChartCenter(response);
+      showToast("Generate request completed.", "success");
     } catch (err) {
       setViewer("Generate Error", { status: "error", message: String(err) });
+      showToast("Generate request failed.", "error");
     }
   });
 
@@ -288,8 +317,10 @@
         auth: true,
       });
       setViewer("Detokenize Result", response);
+      showToast("Detokenization completed.", "success");
     } catch (err) {
       setViewer("Detokenize Error", { status: "error", message: String(err) });
+      showToast("Detokenization failed.", "error");
     }
   });
 
@@ -302,8 +333,10 @@
       setViewer("Benchmark Result", response);
       renderChartCenter(response.benchmark);
       await refreshHistory();
+      showToast("Benchmark run finished.", "success");
     } catch (err) {
       setViewer("Benchmark Error", { status: "error", message: String(err) });
+      showToast("Benchmark failed.", "error");
     }
   });
 
@@ -314,8 +347,10 @@
       updateMetricsFromBenchmark(response.benchmark);
       setViewer("Cross-Split Benchmark", response);
       renderChartCenter(response.benchmark);
+      showToast("Cross-split benchmark done.", "success");
     } catch (err) {
       setViewer("Cross-Split Error", { status: "error", message: String(err) });
+      showToast("Cross-split benchmark failed.", "error");
     }
   });
 
@@ -326,8 +361,10 @@
       const response = await callApi(`/privacy/calibrate?dataset_version=${encodeURIComponent(version)}&split=${encodeURIComponent(split)}`, { auth: true });
       setViewer("Calibration Result", response);
       renderChartCenter(response);
+      showToast("Calibration completed.", "success");
     } catch (err) {
       setViewer("Calibration Error", { status: "error", message: String(err) });
+      showToast("Calibration failed.", "error");
     }
   });
 
@@ -336,8 +373,10 @@
       const response = await callApi("/privacy/autotune?hours=168&min_samples=10", { auth: true });
       setViewer("Autotune Recommendation", response);
       renderChartCenter(response);
+      showToast("Autotune recommendation ready.", "success");
     } catch (err) {
       setViewer("Autotune Error", { status: "error", message: String(err) });
+      showToast("Autotune failed.", "error");
     }
   });
 
@@ -348,11 +387,18 @@
       const response = await callApi("/audit/summary?hours=24", { auth: true });
       setViewer("Audit Summary", response);
       renderChartCenter(response);
+      showToast("Audit summary refreshed.", "success");
     } catch (err) {
       setViewer("Audit Summary Error", { status: "error", message: String(err) });
+      showToast("Audit summary failed.", "error");
     }
   });
 
+  viewButtons.forEach((button) => {
+    button.addEventListener("click", () => setActiveView(button.dataset.view || "dashboard"));
+  });
+
+  setActiveView("dashboard");
   renderChartCenter(bootstrap.benchmark || {});
 
   if (getToken()) {
