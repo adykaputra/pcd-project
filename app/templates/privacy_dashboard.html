@@ -31,6 +31,10 @@
                 <label for="admin-token">Admin JWT</label>
                 <textarea id="admin-token" rows="5" placeholder="Paste token here">{{ initial_token or "" }}</textarea>
             </div>
+            <div class="quick-links">
+                <a href="/">Role Portal</a>
+                <a href="/client?name=Guest">Client Chat</a>
+            </div>
         </aside>
 
         <main class="content">
@@ -74,7 +78,11 @@
                         <div class="field-row">
                             <div>
                                 <label>Provider</label>
-                                <input id="generate-provider" value="mock" />
+                                <select id="generate-provider">
+                                    <option value="mock" selected>mock</option>
+                                    <option value="ollama">ollama</option>
+                                    <option value="openai">openai</option>
+                                </select>
                             </div>
                             <div>
                                 <label>Model</label>

@@ -25,7 +25,18 @@ def landing():
 def client_portal():
     """Client-facing chat UI."""
     display_name = (request.args.get("name") or "Client").strip()[:40]
-    return render_template("client_chat.html", display_name=display_name), 200
+    default_provider = os.getenv("LLM_DEFAULT_PROVIDER", "mock")
+    default_model = (
+        os.getenv("OLLAMA_DEFAULT_MODEL", "llama3.2:3b")
+        if default_provider == "ollama"
+        else os.getenv("OPENAI_DEFAULT_MODEL", "gpt-4o-mini") if default_provider == "openai" else ""
+    )
+    return render_template(
+        "client_chat.html",
+        display_name=display_name,
+        default_provider=default_provider,
+        default_model=default_model,
+    ), 200
 
 
 @bp.route('/healthz', methods=['GET'])

@@ -122,6 +122,26 @@ body {
   background: rgba(59, 130, 246, 0.12);
 }
 
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.quick-links a {
+  border: 1px solid #2f426e;
+  border-radius: 999px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.75rem;
+  color: #cae5ff;
+  text-decoration: none;
+  background: rgba(15, 26, 52, 0.9);
+}
+
+.quick-links a:hover {
+  border-color: #63d8ff;
+}
+
 .token-box label,
 label {
   display: block;

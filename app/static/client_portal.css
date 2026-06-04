@@ -37,6 +37,22 @@ body {
   max-width: 760px;
 }
 
+.hero-chips {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.hero-chips span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.32rem 0.58rem;
+  font-size: 0.74rem;
+  color: #cfe9ff;
+  background: rgba(16, 28, 59, 0.88);
+}
+
 .card-grid {
   margin-top: 1.5rem;
   display: grid;
@@ -95,6 +111,26 @@ button {
   margin-top: 0.6rem;
   color: #fda4af;
   min-height: 1.1rem;
+}
+
+.flow {
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  background: linear-gradient(180deg, rgba(17, 25, 53, 0.9), rgba(23, 34, 69, 0.88));
+}
+
+.flow h3 {
+  margin: 0 0 0.55rem;
+}
+
+.flow ol {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  display: grid;
+  gap: 0.3rem;
 }
 
 @media (max-width: 820px) {

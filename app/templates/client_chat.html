@@ -16,19 +16,44 @@
                 <li>High-risk prompts are challenged or blocked.</li>
                 <li>Ask freely without exposing private identifiers.</li>
             </ul>
+            <div class="sidebar-badges">
+                <span class="pill">Firewall Active</span>
+                <span class="pill">Vault Tokenization</span>
+            </div>
             <a href="/">Back to Role Portal</a>
         </aside>
 
         <main class="chat-main">
             <header>
                 <h2>Privacy-Protected Chat</h2>
-                <span id="policy-indicator" class="badge neutral">ready</span>
+                <div class="header-meta">
+                    <span id="turn-counter" class="badge neutral">0 turns</span>
+                    <span id="policy-indicator" class="badge neutral">ready</span>
+                </div>
             </header>
 
             <section id="messages" class="messages">
                 <div class="message system">
+                    <div class="meta">system</div>
                     <p>Hi {{ display_name }}, I am your privacy-safe AI assistant. I will protect personal identifiers before responding.</p>
                 </div>
+            </section>
+
+            <section class="quick-prompts">
+                <button class="quick-btn" data-prompt="Summarize zero trust in beginner-friendly language.">Zero Trust Summary</button>
+                <button class="quick-btn" data-prompt="Help me draft a complaint email without including personal data.">Complaint Draft</button>
+                <button class="quick-btn" data-prompt="What data should never be shared with AI tools?">Safe Data Guide</button>
+            </section>
+
+            <section id="privacy-report" class="privacy-report" hidden>
+                <h3>Privacy Insight</h3>
+                <div class="report-grid">
+                    <div><span>Policy</span><strong id="report-policy">n/a</strong></div>
+                    <div><span>Risk Score</span><strong id="report-score">n/a</strong></div>
+                    <div><span>Risk Level</span><strong id="report-level">n/a</strong></div>
+                    <div><span>Tokens Applied</span><strong id="report-tokens">0</strong></div>
+                </div>
+                <p id="report-reasons" class="muted"></p>
             </section>
 
             <form id="chat-form" class="composer">
@@ -36,14 +61,23 @@
                 <div class="composer-row">
                     <label>
                         Provider
-                        <input id="provider" value="mock" />
+                        <select id="provider">
+                            <option value="mock" {% if default_provider == "mock" %}selected{% endif %}>mock</option>
+                            <option value="ollama" {% if default_provider == "ollama" %}selected{% endif %}>ollama</option>
+                            <option value="openai" {% if default_provider == "openai" %}selected{% endif %}>openai</option>
+                        </select>
                     </label>
                     <label>
                         Model (optional)
-                        <input id="model" placeholder="optional-model" />
+                        <input id="model" value="{{ default_model or '' }}" placeholder="optional-model" />
                     </label>
-                    <button type="submit">Send</button>
+                    <div class="composer-actions">
+                        <button type="button" id="clear-chat" class="btn-secondary">Clear</button>
+                        <button type="button" id="copy-last" class="btn-secondary">Copy Last</button>
+                        <button type="submit">Send</button>
+                    </div>
                 </div>
+                <p id="typing-indicator" class="typing" hidden>Assistant is thinking...</p>
             </form>
         </main>
     </div>

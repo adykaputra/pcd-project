@@ -5,11 +5,25 @@
   const providerInput = document.getElementById("provider");
   const modelInput = document.getElementById("model");
   const indicator = document.getElementById("policy-indicator");
+  const turnCounter = document.getElementById("turn-counter");
+  const typingIndicator = document.getElementById("typing-indicator");
+  const reportNode = document.getElementById("privacy-report");
+  const reportPolicy = document.getElementById("report-policy");
+  const reportScore = document.getElementById("report-score");
+  const reportLevel = document.getElementById("report-level");
+  const reportTokens = document.getElementById("report-tokens");
+  const reportReasons = document.getElementById("report-reasons");
+  const clearButton = document.getElementById("clear-chat");
+  const copyButton = document.getElementById("copy-last");
+  const quickButtons = Array.from(document.querySelectorAll(".quick-btn"));
+  let lastAssistantText = "";
+  let turns = 0;
 
   function addMessage(role, text, meta = "") {
     const node = document.createElement("div");
     node.className = `message ${role}`;
-    node.innerHTML = `<div class="meta">${meta || role}</div><p>${text}</p>`;
+    const stamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    node.innerHTML = `<div class="meta">${meta || role} · ${stamp}</div><p>${text}</p>`;
     messages.appendChild(node);
     messages.scrollTop = messages.scrollHeight;
   }
@@ -20,7 +34,61 @@
     indicator.textContent = safe;
   }
 
+  function setTyping(visible) {
+    if (!typingIndicator) return;
+    typingIndicator.hidden = !visible;
+  }
+
+  function updateTurns() {
+    if (!turnCounter) return;
+    turnCounter.textContent = `${turns} turns`;
+  }
+
+  function updatePrivacyReport(payload) {
+    if (!reportNode) return;
+    const risk = payload?.risk_assessment || {};
+    const reasons = Array.isArray(risk.reasons) ? risk.reasons : [];
+    const tokenCounts = payload?.tokenization?.token_counts || {};
+    const totalTokens = Object.values(tokenCounts).reduce((sum, value) => sum + (Number(value) || 0), 0);
+    reportPolicy.textContent = String(risk.policy_action || payload.status || "n/a");
+    reportScore.textContent = String(risk.risk_score ?? "n/a");
+    reportLevel.textContent = String(risk.risk_level || "n/a");
+    reportTokens.textContent = String(totalTokens);
+    reportReasons.textContent = reasons.length ? `Signals: ${reasons.join(", ")}` : "Signals: none";
+    reportNode.hidden = false;
+  }
+
+  function clearChat() {
+    if (!messages) return;
+    messages.innerHTML = "";
+    addMessage("system", "Conversation cleared. Continue safely.", "system");
+    turns = 0;
+    updateTurns();
+    setIndicator("neutral");
+    if (reportNode) reportNode.hidden = true;
+    lastAssistantText = "";
+  }
+
   if (!form) return;
+  quickButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const text = btn.dataset.prompt || "";
+      if (input) input.value = text;
+      input?.focus();
+    });
+  });
+
+  clearButton?.addEventListener("click", clearChat);
+  copyButton?.addEventListener("click", async () => {
+    if (!lastAssistantText) return;
+    try {
+      await navigator.clipboard.writeText(lastAssistantText);
+      setIndicator("ok");
+    } catch (err) {
+      setIndicator("denied");
+    }
+  });
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const prompt = (input?.value || "").trim();
@@ -28,6 +96,7 @@
 
     addMessage("user", prompt, "you");
     input.value = "";
+    setTyping(true);
 
     try {
       const response = await fetch("/client/chat", {
@@ -43,19 +112,35 @@
 
       if (payload.status === "ok") {
         addMessage("assistant", payload.reply || "No response text returned.", `assistant · ${payload.provider || "unknown"}`);
+        lastAssistantText = payload.reply || "";
+        turns += 1;
+        updateTurns();
+        updatePrivacyReport(payload);
         setIndicator("ok");
         return;
       }
       if (payload.status === "challenge") {
         addMessage("assistant", payload.reply || "Prompt needs revision.", "policy challenge");
+        lastAssistantText = payload.reply || "";
+        turns += 1;
+        updateTurns();
+        updatePrivacyReport(payload);
         setIndicator("challenge");
         return;
       }
       addMessage("assistant", payload.reply || payload.message || "Request denied by policy.", "policy denied");
+      lastAssistantText = payload.reply || payload.message || "";
+      turns += 1;
+      updateTurns();
+      updatePrivacyReport(payload);
       setIndicator("denied");
     } catch (err) {
       addMessage("assistant", `Connection error: ${err}`, "error");
       setIndicator("denied");
+    } finally {
+      setTyping(false);
     }
   });
+
+  updateTurns();
 })();
