@@ -1,6 +1,8 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, redirect, url_for
 from app.audit import get_manager
 from datetime import datetime, timedelta
+import os
+import jwt
 
 bp = Blueprint('module4', __name__, url_prefix='/audit')
 
@@ -10,8 +12,10 @@ def _is_admin_request(req):
     auth = req.headers.get('Authorization')
     if auth and auth.startswith('Bearer '):
         token = auth.split(' ', 1)[1]
-        import os
-        import jwt
+    else:
+        token = req.args.get('token')
+
+    if token:
         secret = os.getenv('JWT_SECRET', 'very-secret')
         try:
             payload = jwt.decode(token, secret, algorithms=["HS256"])
@@ -45,7 +49,9 @@ def summary():
 
 @bp.route('/dashboard', methods=['GET'])
 def dashboard():
-    # Dashboard optionally takes a token query param for the frontend to call /audit/summary
+    if not _is_admin_request(request):
+        return redirect(url_for("module3.landing"))
+
     from .dashboard import render_dashboard
     from app.privacy_benchmark import run_privacy_benchmark
     from app.privacy_calibration import calibrate_policy_thresholds

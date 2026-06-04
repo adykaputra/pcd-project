@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Firewall - Sign In</title>
+    <link rel="stylesheet" href="/static/auth_gateway.css" />
+</head>
+<body>
+    <main class="auth-shell">
+        <section class="intro">
+            <h1>LLM Privacy Firewall</h1>
+            <p>One secure entry point for everyone. Admins go to governance dashboard, users go to privacy-protected AI chat.</p>
+            <div class="chips">
+                <span>Single Login</span>
+                <span>PII Tokenization</span>
+                <span>Policy Challenge/Block</span>
+                <span>Audit Integrity</span>
+            </div>
+        </section>
+
+        <section class="auth-card">
+            <div class="tab-row">
+                <button id="tab-login" class="tab active" type="button">Sign In</button>
+                <button id="tab-signup" class="tab" type="button">Create Account</button>
+            </div>
+
+            <form id="login-form" class="form active">
+                <label for="login-email">Email</label>
+                <input id="login-email" type="email" placeholder="you@example.com" required />
+
+                <label for="login-password">Password</label>
+                <input id="login-password" type="password" placeholder="••••••••" required />
+
+                <button id="login-submit" type="submit">Sign In</button>
+                <p class="hint">Admin credentials route to dashboard. User credentials route to client chat.</p>
+                <p id="login-error" class="error"></p>
+            </form>
+
+            <form id="signup-form" class="form">
+                <label for="signup-name">Display Name</label>
+                <input id="signup-name" type="text" placeholder="Aisyah" maxlength="40" required />
+
+                <label for="signup-email">Email</label>
+                <input id="signup-email" type="email" placeholder="you@example.com" required />
+
+                <label for="signup-password">Password</label>
+                <input id="signup-password" type="password" placeholder="Minimum 8 characters" minlength="8" required />
+
+                <button id="signup-submit" type="submit">Create Account</button>
+                <p class="hint">After sign-up, use Sign In to enter client chat.</p>
+                <p id="signup-error" class="error"></p>
+            </form>
+
+            <div class="divider"><span>or</span></div>
+            <button id="google-signin" class="google-btn" type="button">Continue with Google</button>
+            <p id="google-message" class="hint"></p>
+        </section>
+    </main>
+
+    <script src="/static/auth_gateway.js"></script>
+</body>
+</html>

@@ -16,6 +16,8 @@
   const clearButton = document.getElementById("clear-chat");
   const copyButton = document.getElementById("copy-last");
   const quickButtons = Array.from(document.querySelectorAll(".quick-btn"));
+  const bootstrap = window.__CLIENT_BOOTSTRAP__ || {};
+  const authToken = String(bootstrap.authToken || "");
   let lastAssistantText = "";
   let turns = 0;
 
@@ -101,7 +103,10 @@
     try {
       const response = await fetch("/client/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           prompt,
           provider: (providerInput?.value || "mock").trim(),
@@ -109,6 +114,10 @@
         }),
       });
       const payload = await response.json();
+      if (response.status === 401) {
+        window.location.href = "/";
+        return;
+      }
 
       if (payload.status === "ok") {
         addMessage("assistant", payload.reply || "No response text returned.", `assistant · ${payload.provider || "unknown"}`);

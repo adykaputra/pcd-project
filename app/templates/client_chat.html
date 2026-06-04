@@ -20,7 +20,7 @@
                 <span class="pill">Firewall Active</span>
                 <span class="pill">Vault Tokenization</span>
             </div>
-            <a href="/">Back to Role Portal</a>
+            <a href="/">Back to Sign In</a>
         </aside>
 
         <main class="chat-main">
@@ -83,7 +83,10 @@
     </div>
 
     <script>
-        window.__CLIENT_BOOTSTRAP__ = { displayName: {{ (display_name or "Client") | tojson }} };
+        window.__CLIENT_BOOTSTRAP__ = {
+            displayName: {{ (display_name or "Client") | tojson }},
+            authToken: {{ (auth_token or "") | tojson }},
+        };
     </script>
     <script src="/static/client_chat.js"></script>
 </body>

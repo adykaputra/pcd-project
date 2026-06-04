@@ -1,4 +1,5 @@
 from app import create_app
+from uuid import uuid4
 
 
 def _client():
@@ -12,13 +13,26 @@ def test_root_portal_page_serves_role_options():
     resp = client.get("/")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
-    assert "Client Access" in body
-    assert "Admin Access" in body
+    assert "Sign In" in body
+    assert "Create Account" in body
+
+
+def _create_user_and_get_token(client):
+    email = f"user-{uuid4().hex[:8]}@example.com"
+    signup = client.post(
+        "/signup",
+        json={"name": "Aisyah", "email": email, "password": "strongpass123"},
+    )
+    assert signup.status_code == 201
+    login = client.post("/login", json={"email": email, "password": "strongpass123"})
+    assert login.status_code == 200
+    return login.get_json()["token"]
 
 
 def test_client_portal_page_renders():
     client = _client()
-    resp = client.get("/client?name=Aisyah")
+    token = _create_user_and_get_token(client)
+    resp = client.get(f"/client?token={token}")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "Privacy-Protected Chat" in body
@@ -27,6 +41,7 @@ def test_client_portal_page_renders():
 
 def test_client_chat_ok(monkeypatch):
     client = _client()
+    token = _create_user_and_get_token(client)
 
     def _fake_pipeline(**kwargs):
         return {
@@ -40,7 +55,11 @@ def test_client_chat_ok(monkeypatch):
 
     monkeypatch.setattr("app.module3.routes._run_firewall_pipeline", _fake_pipeline)
 
-    resp = client.post("/client/chat", json={"prompt": "Hello", "provider": "mock"})
+    resp = client.post(
+        "/client/chat",
+        json={"prompt": "Hello", "provider": "mock"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["status"] == "ok"
@@ -49,6 +68,7 @@ def test_client_chat_ok(monkeypatch):
 
 def test_client_chat_challenge(monkeypatch):
     client = _client()
+    token = _create_user_and_get_token(client)
 
     def _fake_pipeline(**kwargs):
         return {
@@ -59,7 +79,11 @@ def test_client_chat_challenge(monkeypatch):
 
     monkeypatch.setattr("app.module3.routes._run_firewall_pipeline", _fake_pipeline)
 
-    resp = client.post("/client/chat", json={"prompt": "My phone is 012-3456789"})
+    resp = client.post(
+        "/client/chat",
+        json={"prompt": "My phone is 012-3456789"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert resp.status_code == 409
     body = resp.get_json()
     assert body["status"] == "challenge"

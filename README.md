@@ -51,10 +51,12 @@ The production profile uses Gunicorn runtime and health checks, with persisted `
 ## Client Journey (What a normal user does)
 
 1. Open `http://localhost:5100/`.
-2. Choose **Client Access**.
-3. Enter display name and open the chat page.
-4. Chat via `/client/chat` (privacy firewall runs automatically before model dispatch).
-5. If a prompt is too sensitive, the user receives challenge/deny feedback and can rewrite safely.
+2. Use the **single login page**:
+   - Existing admin credentials -> routed to dashboard.
+   - Existing user credentials -> routed to client chat.
+   - New user -> create account in the same page, then sign in.
+3. Chat via `/client/chat` (privacy firewall runs automatically before model dispatch).
+4. If a prompt is too sensitive, the user receives challenge/deny feedback and can rewrite safely.
 
 ## Showcase Guide
 
@@ -226,11 +228,17 @@ Recommended hardening before internet exposure:
 
 ## How to run the full flow (Login -> Sanitize -> Generate -> Audit)
 
-1. Login to get an admin token (default password: `admin-pass`):
+1. Login to get an admin token (default admin account uses `ADMIN_EMAIL` + `admin-pass`):
 
 ```bash
-curl -X POST http://localhost:5100/login -H 'Content-Type: application/json' -d '{"password":"admin-pass"}'
+curl -X POST http://localhost:5100/login -H 'Content-Type: application/json' -d '{"email":"admin@privacyfirewall.local","password":"admin-pass"}'
 # {"status":"ok","token":"..."}
+```
+
+Create a user account:
+
+```bash
+curl -X POST http://localhost:5100/signup -H 'Content-Type: application/json' -d '{"name":"Aisyah","email":"aisyah@example.com","password":"strongpass123"}'
 ```
 
 2. Sanitize a prompt:
@@ -294,7 +302,7 @@ curl -H 'Authorization: Bearer <token>' http://localhost:5100/audit/summary
 
 Open in browser: `http://localhost:5100/audit/dashboard?token=<token>`
 
-7. High-fidelity prototype landing page:
+7. High-fidelity prototype landing page (single sign-in gateway):
 
 Open in browser: `http://localhost:5100/`
 
@@ -327,7 +335,17 @@ export OLLAMA_BASE_URL=http://localhost:11434
 export OLLAMA_DEFAULT_MODEL=llama3.2:3b
 ```
 
-11. Optional: enable spaCy NER backend (Phase 3):
+11. Optional: enable Google Sign-In (OAuth):
+
+Google login needs an OAuth integration plugin/library (recommended: `Authlib`) plus Google Cloud credentials.
+
+```bash
+pip install authlib
+export GOOGLE_CLIENT_ID=your_google_client_id
+export GOOGLE_CLIENT_SECRET=your_google_client_secret
+```
+
+12. Optional: enable spaCy NER backend (Phase 3):
 
 ```bash
 pip install spacy
@@ -336,7 +354,7 @@ export PRIVACY_NER_BACKEND=spacy
 export PRIVACY_NER_MODEL=en_core_web_sm
 ```
 
-12. Optional: enable transformer NER backend (Phase 4):
+13. Optional: enable transformer NER backend (Phase 4):
 
 ```bash
 pip install transformers torch
@@ -344,19 +362,19 @@ export PRIVACY_NER_BACKEND=transformer
 export PRIVACY_NER_TRANSFORMER_MODEL=dslim/bert-base-NER
 ```
 
-13. Auto-tune policy thresholds from audit telemetry (admin only):
+14. Auto-tune policy thresholds from audit telemetry (admin only):
 
 ```bash
 curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/autotune?hours=168&min_samples=10'
 ```
 
-14. View benchmark trend history (admin only):
+15. View benchmark trend history (admin only):
 
 ```bash
 curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark/history?limit=20'
 ```
 
-15. List benchmark dataset versions (admin only):
+16. List benchmark dataset versions (admin only):
 
 ```bash
 curl -H 'Authorization: Bearer <token>' 'http://localhost:5100/privacy/benchmark/datasets'

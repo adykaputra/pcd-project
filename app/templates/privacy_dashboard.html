@@ -32,8 +32,8 @@
                 <textarea id="admin-token" rows="5" placeholder="Paste token here">{{ initial_token or "" }}</textarea>
             </div>
             <div class="quick-links">
-                <a href="/">Role Portal</a>
-                <a href="/client?name=Guest">Client Chat</a>
+                <a href="/">Sign In</a>
+                <a href="/client?token={{ initial_token or '' }}">Client Chat</a>
             </div>
         </aside>
 

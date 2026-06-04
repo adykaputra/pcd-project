@@ -1,6 +1,7 @@
 import os
 import jwt
 from datetime import datetime
+from typing import Optional
 from flask import Blueprint, request, jsonify, current_app, render_template, redirect, url_for
 from app.audit import get_manager
 from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_vault
@@ -15,16 +16,41 @@ from app.privacy_benchmark_dataset import list_dataset_versions
 bp = Blueprint('module3', __name__)
 
 
+def _decode_bearer_token(req):
+    auth = req.headers.get("Authorization") or ""
+    if auth.startswith("Bearer "):
+        return auth.split(" ", 1)[1]
+    return None
+
+
+def _decode_auth_payload(token: Optional[str]):
+    if not token:
+        return None
+    secret = os.getenv('JWT_SECRET', 'very-secret')
+    try:
+        return jwt.decode(token, secret, algorithms=["HS256"])
+    except Exception:
+        return None
+
+
 @bp.route('/', methods=['GET'])
 def landing():
-    """Role-based product entry point (client vs admin)."""
-    return render_template("entry_portal.html"), 200
+    """Unified auth gateway (single login/signup page)."""
+    return render_template("auth_gateway.html"), 200
 
 
 @bp.route('/client', methods=['GET'])
 def client_portal():
     """Client-facing chat UI."""
-    display_name = (request.args.get("name") or "Client").strip()[:40]
+    token = request.args.get("token") or _decode_bearer_token(request)
+    payload = _decode_auth_payload(token)
+    if not payload:
+        return redirect(url_for("module3.landing"))
+    role = payload.get("role")
+    if role not in {"user", "admin"}:
+        return redirect(url_for("module3.landing"))
+
+    display_name = (payload.get("name") or payload.get("sub") or "Client").strip()[:40]
     default_provider = os.getenv("LLM_DEFAULT_PROVIDER", "mock")
     default_model = (
         os.getenv("OLLAMA_DEFAULT_MODEL", "llama3.2:3b")
@@ -36,6 +62,7 @@ def client_portal():
         display_name=display_name,
         default_provider=default_provider,
         default_model=default_model,
+        auth_token=token,
     ), 200
 
 
@@ -74,15 +101,10 @@ def healthz():
 
 
 def _is_admin_request(req) -> bool:
-    auth = req.headers.get('Authorization')
-    if auth and auth.startswith('Bearer '):
-        token = auth.split(' ', 1)[1]
-        secret = os.getenv('JWT_SECRET', 'very-secret')
-        try:
-            payload = jwt.decode(token, secret, algorithms=["HS256"])
-            return payload.get('role') == 'admin'
-        except Exception:
-            return False
+    token = _decode_bearer_token(req) or req.args.get("token")
+    payload = _decode_auth_payload(token)
+    if payload:
+        return payload.get('role') == 'admin'
     role = req.headers.get('X-User-Role') or req.args.get('role')
     return role == 'admin'
 
@@ -272,6 +294,11 @@ def generate():
 @bp.route('/client/chat', methods=['POST'])
 def client_chat():
     """Client-facing chat endpoint backed by the privacy firewall."""
+    token = _decode_bearer_token(request)
+    payload = _decode_auth_payload(token)
+    if not payload or payload.get("role") not in {"user", "admin"}:
+        return jsonify({"status": "denied", "message": "Authentication required"}), 401
+
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"status": "denied", "message": "Invalid request: JSON body required"}), 400
