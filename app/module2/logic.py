@@ -261,8 +261,12 @@ def _tokenize_ner_entities(text: str, entities: list) -> Tuple[str, Dict[str, in
         raw = str(entity.get("text", "")).strip()
         if not raw:
             continue
-        replacement = vault.get_or_create_token(value=raw, pii_type=pii_type).token
         pattern = re.compile(r"\b" + re.escape(raw) + r"\b", re.IGNORECASE)
+        first_match = pattern.search(redacted)
+        if not first_match:
+            continue
+        # Preserve observed casing from current prompt text.
+        replacement = vault.get_or_create_token(value=first_match.group(0), pii_type=pii_type).token
 
         def _replace(match: re.Match) -> str:
             candidate = match.group(0)

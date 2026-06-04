@@ -132,6 +132,13 @@ class PIIVault:
             cur.execute("SELECT token FROM vault_entries WHERE value_hash = ?", (value_hash,))
             row = cur.fetchone()
             if row:
+                # Preserve the most recent surface form (e.g., name casing) while
+                # keeping deterministic token mapping based on normalized hash.
+                cur.execute(
+                    "UPDATE vault_entries SET value_ciphertext = ? WHERE value_hash = ?",
+                    (self._encrypt(value), value_hash),
+                )
+                conn.commit()
                 conn.close()
                 return VaultToken(token=row["token"], pii_type=pii_type, value_hash=value_hash)
 
