@@ -129,8 +129,12 @@ def login():
     # Backward compatible admin login: password-only payload.
     email = str(data.get("email") or "").strip().lower()
     password = str(data.get("password") or "")
-    if not email and password == ADMIN_PASSWORD:
-        return _issue_login_response(role="admin", email=ADMIN_EMAIL, name="Admin")
+    if not email:
+        if password == ADMIN_PASSWORD:
+            return _issue_login_response(role="admin", email=ADMIN_EMAIL, name="Admin")
+        if password:
+            current_app.logger.warning('Failed login attempt', extra={"event_type": "SECURITY_DENIED"})
+            return jsonify({"status": "denied", "message": "Invalid credentials"}), 403
 
     if not email or not password:
         return jsonify({"status": "denied", "message": "Email and password are required"}), 400
