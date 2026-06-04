@@ -131,6 +131,19 @@ button[type="submit"] {
   color: var(--muted);
 }
 
+.auth-banner {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(12, 22, 52, 0.9);
+}
+
+.auth-banner.error {
+  color: var(--danger);
+  border-color: rgba(253, 164, 175, 0.5);
+}
+
 .error {
   margin: 0.15rem 0 0;
   color: var(--danger);

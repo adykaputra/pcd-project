@@ -7,6 +7,8 @@
   const signupError = document.getElementById("signup-error");
   const googleMessage = document.getElementById("google-message");
   const googleButton = document.getElementById("google-signin");
+  const banner = document.getElementById("auth-banner");
+  const bootstrap = window.__AUTH_BOOTSTRAP__ || {};
 
   if (!loginTab || !signupTab || !loginForm || !signupForm) {
     return;
@@ -72,15 +74,18 @@
     }
   });
 
-  googleButton?.addEventListener("click", async () => {
-    if (googleMessage) googleMessage.textContent = "";
-    try {
-      const response = await fetch("/auth/google/start");
-      const payload = await response.json();
-      const msg = payload?.message || "Google Sign-In is not configured yet.";
-      if (googleMessage) googleMessage.textContent = msg;
-    } catch (err) {
-      if (googleMessage) googleMessage.textContent = String(err);
+  const initialError = String(bootstrap.authError || "");
+  const initialMessage = String(bootstrap.authMessage || "");
+  if (banner && (initialError || initialMessage)) {
+    banner.hidden = false;
+    banner.textContent = initialError || initialMessage;
+    banner.classList.toggle("error", Boolean(initialError));
+  }
+
+  googleButton?.addEventListener("click", () => {
+    if (googleMessage) {
+      googleMessage.textContent = "Redirecting to Google...";
     }
+    window.location.href = "/auth/google/start";
   });
 })();

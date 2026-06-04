@@ -20,4 +20,5 @@ dependencies:
     - pytest
     - black
     - PyJWT
+    - authlib
     # add other pip deps here

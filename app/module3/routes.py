@@ -36,7 +36,11 @@ def _decode_auth_payload(token: Optional[str]):
 @bp.route('/', methods=['GET'])
 def landing():
     """Unified auth gateway (single login/signup page)."""
-    return render_template("auth_gateway.html"), 200
+    return render_template(
+        "auth_gateway.html",
+        auth_error=(request.args.get("auth_error") or "").strip(),
+        auth_message=(request.args.get("auth_message") or "").strip(),
+    ), 200
 
 
 @bp.route('/client', methods=['GET'])

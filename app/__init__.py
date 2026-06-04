@@ -1,4 +1,5 @@
 from flask import Flask
+import os
 
 from .logging_config import init_logging
 from .middleware import init_request_middleware
@@ -6,6 +7,8 @@ from .middleware import init_request_middleware
 
 def create_app():
     app = Flask(__name__)
+    # Session-backed OAuth requires a stable secret key.
+    app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", os.getenv("JWT_SECRET", "very-secret"))
 
     # Initialize structured logging and request middleware
     init_logging(app)

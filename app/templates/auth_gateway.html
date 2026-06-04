@@ -24,6 +24,7 @@
                 <button id="tab-login" class="tab active" type="button">Sign In</button>
                 <button id="tab-signup" class="tab" type="button">Create Account</button>
             </div>
+            <p id="auth-banner" class="hint auth-banner" hidden></p>
 
             <form id="login-form" class="form active">
                 <label for="login-email">Email</label>
@@ -58,6 +59,12 @@
         </section>
     </main>
 
+    <script>
+        window.__AUTH_BOOTSTRAP__ = {
+            authError: {{ (auth_error or "") | tojson }},
+            authMessage: {{ (auth_message or "") | tojson }}
+        };
+    </script>
     <script src="/static/auth_gateway.js"></script>
 </body>
 </html>

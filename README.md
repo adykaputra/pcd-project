@@ -337,13 +337,21 @@ export OLLAMA_DEFAULT_MODEL=llama3.2:3b
 
 11. Optional: enable Google Sign-In (OAuth):
 
-Google login needs an OAuth integration plugin/library (recommended: `Authlib`) plus Google Cloud credentials.
+Google login needs Authlib + Google Cloud OAuth credentials.
+Set the authorized redirect URI in Google Cloud Console to:
+
+- `http://localhost:5100/auth/google/callback` (local)
+- Your production URL equivalent, e.g. `https://your-domain/auth/google/callback`
 
 ```bash
 pip install authlib
 export GOOGLE_CLIENT_ID=your_google_client_id
 export GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
+
+After setup, users can click **Continue with Google** on `/` and will be auto-routed:
+- admin email (`ADMIN_EMAIL`) -> dashboard
+- all other emails -> client chat (auto-provisioned user account)
 
 12. Optional: enable spaCy NER backend (Phase 3):
 
