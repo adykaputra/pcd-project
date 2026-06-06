@@ -9,42 +9,41 @@
 <body>
     <main class="auth-layout">
         <section class="brand-panel">
-            <div class="brand-mark">
-                <span class="brand-icon">A</span>
-                <span class="brand-name">PRIVACY ADVISOR</span>
+            <div class="brand-top">
+                <span class="brand-pill">LLM Privacy Firewall</span>
+                <span class="brand-status">Live policy guard</span>
             </div>
-            <h1>Meticulous privacy management for every prompt.</h1>
+            <h1>Secure every prompt without slowing users down.</h1>
             <p class="brand-copy">
-                The professional privacy-first standard for safe AI usage, designed for students,
-                teams, and organizations handling sensitive data.
+                Unified access for admins and users with automatic PII tokenization,
+                risk scoring, and audit integrity in one workflow.
             </p>
-            <ul class="benefits">
-                <li>
-                    <span class="benefit-icon">+</span>
-                    <div>
-                        <strong>Precision Tokenization</strong>
-                        <p>PII gets masked before the model sees raw user details.</p>
-                    </div>
-                </li>
-                <li>
-                    <span class="benefit-icon">+</span>
-                    <div>
-                        <strong>Policy Enforcement</strong>
-                        <p>Risk engine can allow, challenge, or block unsafe prompts instantly.</p>
-                    </div>
-                </li>
-                <li>
-                    <span class="benefit-icon">+</span>
-                    <div>
-                        <strong>Audit Integrity</strong>
-                        <p>Every action is logged for governance and compliance reporting.</p>
-                    </div>
-                </li>
-            </ul>
+            <div class="metric-grid">
+                <article class="metric-card">
+                    <strong>3-layer firewall</strong>
+                    <p>Detect -> tokenize -> enforce.</p>
+                </article>
+                <article class="metric-card">
+                    <strong>Role-aware gateway</strong>
+                    <p>Admin dashboard and user chat routing.</p>
+                </article>
+                <article class="metric-card">
+                    <strong>Tamper-evident logs</strong>
+                    <p>Traceable events for compliance review.</p>
+                </article>
+            </div>
+            <div class="pathway">
+                <h3>Sign-in flow</h3>
+                <ol>
+                    <li>Authenticate with email/password or Google.</li>
+                    <li>System assigns route based on role and policy.</li>
+                    <li>Prompts pass through privacy controls before LLM dispatch.</li>
+                </ol>
+            </div>
         </section>
 
         <section class="auth-card">
-            <div class="card-icon" aria-hidden="true">[]</div>
+            <div class="card-icon" aria-hidden="true">PF</div>
             <h2 id="auth-mode-title">Welcome Back</h2>
             <p id="auth-mode-subtitle" class="subtitle">Sign in to access your privacy firewall workspace.</p>
             <p id="auth-banner" class="hint auth-banner" hidden></p>
@@ -56,7 +55,7 @@
                 <label for="login-password">Password</label>
                 <input id="login-password" type="password" placeholder="••••••••" required />
 
-                <button id="login-submit" type="submit">Sign In -></button>
+                <button id="login-submit" type="submit">Sign In Securely</button>
                 <p class="hint">Admin account opens dashboard. Other accounts open client chat.</p>
                 <p id="login-error" class="error"></p>
             </form>
@@ -78,10 +77,10 @@
 
             <div class="divider"><span>or</span></div>
             <button id="google-signin" class="google-btn" type="button">
-                <span class="g-badge">G</span>
+                <img src="/static/google-logo.svg" alt="" class="google-logo" />
                 Sign in with Google
             </button>
-            <p class="hint note">Google sign-in automatically creates user access. Set <code>ADMIN_EMAIL</code> to route your admin Google account to dashboard.</p>
+            <p class="hint note">Google sign-in auto-provisions user access. Use <code>ADMIN_EMAIL</code> to map your admin Google account to dashboard.</p>
             <p id="google-message" class="hint"></p>
             <p class="switch-row">
                 <span id="switch-copy">Don't have an account?</span>

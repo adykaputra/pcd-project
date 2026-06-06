@@ -1,14 +1,14 @@
 :root {
-  --page-bg: #edf2fb;
-  --left-bg: #f4f7fd;
+  --page-bg: #eef3ff;
+  --left-bg: #f7f9ff;
   --card-bg: #ffffff;
-  --line: #d5ddeb;
-  --input-bg: #eef2fa;
-  --text: #0a1a42;
-  --muted: #556a93;
-  --accent: #2f66df;
-  --accent-hover: #244fb3;
-  --danger: #b33b4b;
+  --line: #d7dfef;
+  --input-bg: #eff3fb;
+  --text: #101c42;
+  --muted: #5b6f97;
+  --accent: #315fd6;
+  --accent-hover: #274dae;
+  --danger: #bc3c50;
 }
 
 * {
@@ -20,133 +20,182 @@ body {
   min-height: 100vh;
   font-family: Inter, "Segoe UI", Roboto, sans-serif;
   color: var(--text);
-  background: var(--page-bg);
+  background: linear-gradient(180deg, var(--page-bg), #f7f9ff 48%, #ecf2ff);
 }
 
 .auth-layout {
+  max-width: 1180px;
+  margin: 0 auto;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(340px, 450px);
+  grid-template-columns: minmax(360px, 1fr) minmax(360px, 470px);
+  gap: 1.25rem;
+  padding: 1.5rem;
 }
 
 .brand-panel {
-  padding: 3rem;
+  padding: 2.5rem;
   background-color: var(--left-bg);
-  background-image: radial-gradient(#d7dfef 0.9px, transparent 0.9px);
-  background-size: 24px 24px;
-  border-right: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: 24px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 
-.brand-mark {
+.brand-panel::before {
+  content: "";
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(49, 95, 214, 0.15) 0%, rgba(49, 95, 214, 0) 70%);
+  top: -140px;
+  right: -110px;
+}
+
+.brand-panel::after {
+  content: "";
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(98, 214, 180, 0.15) 0%, rgba(98, 214, 180, 0) 72%);
+  bottom: -110px;
+  left: -80px;
+}
+
+.brand-top {
+  position: relative;
+  z-index: 1;
   display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin-bottom: 1.8rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.2rem;
 }
 
-.brand-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 8px;
+.brand-pill,
+.brand-status {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  color: #fff;
-  background: var(--accent);
-  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.33rem 0.7rem;
   font-size: 0.76rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-weight: 700;
 }
 
-.brand-name {
-  font-size: 1.05rem;
-  letter-spacing: 0.06em;
-  font-weight: 700;
+.brand-pill {
+  background: #e7efff;
+  color: #274085;
+}
+
+.brand-status {
+  background: #e8fbf4;
+  color: #0f6f50;
 }
 
 .brand-panel h1 {
+  position: relative;
+  z-index: 1;
   margin: 0;
-  max-width: 470px;
-  line-height: 1.15;
-  font-size: clamp(2rem, 3.6vw, 3.2rem);
+  max-width: 560px;
+  line-height: 1.12;
+  font-size: clamp(2rem, 4vw, 3.2rem);
 }
 
 .brand-copy {
-  margin: 1.3rem 0 2rem;
+  position: relative;
+  z-index: 1;
+  margin: 1.1rem 0 1.5rem;
   max-width: 560px;
   font-size: 1rem;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--muted);
 }
 
-.benefits {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.metric-grid {
+  position: relative;
+  z-index: 1;
   display: grid;
-  gap: 1rem;
-}
-
-.benefits li {
-  display: flex;
-  align-items: flex-start;
   gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
 }
 
-.benefit-icon {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
-  border-radius: 50%;
-  border: 1px solid #bdcae2;
-  background: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.95rem;
-  color: var(--accent);
-  font-weight: 700;
+.metric-card {
+  border: 1px solid #dce5f6;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0.75rem;
 }
 
-.benefits strong {
+.metric-card strong {
   display: block;
-  margin: 0 0 0.15rem;
-  font-size: 1.02rem;
+  font-size: 0.92rem;
 }
 
-.benefits p {
-  margin: 0;
+.metric-card p {
+  margin: 0.35rem 0 0;
+  font-size: 0.83rem;
   color: var(--muted);
-  font-size: 0.93rem;
+}
+
+.pathway {
+  position: relative;
+  z-index: 1;
+  margin-top: 1rem;
+  border: 1px solid #dde6f8;
+  border-radius: 14px;
+  padding: 0.82rem 0.9rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.pathway h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.96rem;
+}
+
+.pathway ol {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.86rem;
 }
 
 .auth-card {
-  padding: 2.6rem 2rem;
+  padding: 2.4rem 2rem;
   background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 24px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  box-shadow: 0 16px 35px rgba(36, 63, 125, 0.1);
 }
 
 .card-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-weight: 700;
-  font-size: 1.1rem;
-  background: var(--accent);
-  box-shadow: 0 18px 30px rgba(47, 102, 223, 0.25);
+  font-size: 0.88rem;
+  letter-spacing: 0.07em;
+  background: linear-gradient(135deg, #315fd6, #547ef0);
+  box-shadow: 0 12px 24px rgba(49, 95, 214, 0.24);
 }
 
 .auth-card h2 {
-  margin: 1.2rem 0 0.35rem;
-  font-size: clamp(2rem, 3.3vw, 2.85rem);
+  margin: 1.05rem 0 0.35rem;
+  font-size: clamp(2rem, 3vw, 2.7rem);
   line-height: 1.1;
 }
 
@@ -210,7 +259,7 @@ button[type="submit"]:hover {
 }
 
 .note {
-  margin-top: 0.7rem;
+  margin-top: 0.75rem;
   border: 1px solid #ccdbfb;
   border-radius: 12px;
   background: #f3f7ff;
@@ -262,7 +311,7 @@ button[type="submit"]:hover {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 0.72rem 0.75rem;
+  padding: 0.75rem 0.75rem;
   color: var(--text);
   background: #fff;
   cursor: pointer;
@@ -277,16 +326,10 @@ button[type="submit"]:hover {
   background: #f8fbff;
 }
 
-.g-badge {
-  width: 23px;
-  height: 23px;
-  border-radius: 50%;
-  border: 1px solid #d7deed;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #db4437;
-  font-weight: 700;
+.google-logo {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
 }
 
 .switch-row {
@@ -312,15 +355,18 @@ button[type="submit"]:hover {
 @media (max-width: 960px) {
   .auth-layout {
     grid-template-columns: 1fr;
+    padding: 1rem;
   }
 
   .brand-panel {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    padding: 2rem 1.3rem;
+    padding: 1.6rem 1.2rem;
   }
 
   .auth-card {
-    padding: 2rem 1.2rem;
+    padding: 1.8rem 1.2rem;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
   }
 }
