@@ -7,23 +7,46 @@
     <link rel="stylesheet" href="/static/auth_gateway.css" />
 </head>
 <body>
-    <main class="auth-shell">
-        <section class="intro">
-            <h1>LLM Privacy Firewall</h1>
-            <p>One secure entry point for everyone. Admins go to governance dashboard, users go to privacy-protected AI chat.</p>
-            <div class="chips">
-                <span>Single Login</span>
-                <span>PII Tokenization</span>
-                <span>Policy Challenge/Block</span>
-                <span>Audit Integrity</span>
+    <main class="auth-layout">
+        <section class="brand-panel">
+            <div class="brand-mark">
+                <span class="brand-icon">A</span>
+                <span class="brand-name">PRIVACY ADVISOR</span>
             </div>
+            <h1>Meticulous privacy management for every prompt.</h1>
+            <p class="brand-copy">
+                The professional privacy-first standard for safe AI usage, designed for students,
+                teams, and organizations handling sensitive data.
+            </p>
+            <ul class="benefits">
+                <li>
+                    <span class="benefit-icon">+</span>
+                    <div>
+                        <strong>Precision Tokenization</strong>
+                        <p>PII gets masked before the model sees raw user details.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="benefit-icon">+</span>
+                    <div>
+                        <strong>Policy Enforcement</strong>
+                        <p>Risk engine can allow, challenge, or block unsafe prompts instantly.</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="benefit-icon">+</span>
+                    <div>
+                        <strong>Audit Integrity</strong>
+                        <p>Every action is logged for governance and compliance reporting.</p>
+                    </div>
+                </li>
+            </ul>
         </section>
 
         <section class="auth-card">
-            <div class="tab-row">
-                <button id="tab-login" class="tab active" type="button">Sign In</button>
-                <button id="tab-signup" class="tab" type="button">Create Account</button>
-            </div>
+            <div class="card-icon" aria-hidden="true">[]</div>
+            <h2 id="auth-mode-title">Welcome Back</h2>
+            <p id="auth-mode-subtitle" class="subtitle">Sign in to access your privacy firewall workspace.</p>
             <p id="auth-banner" class="hint auth-banner" hidden></p>
 
             <form id="login-form" class="form active">
@@ -33,8 +56,8 @@
                 <label for="login-password">Password</label>
                 <input id="login-password" type="password" placeholder="••••••••" required />
 
-                <button id="login-submit" type="submit">Sign In</button>
-                <p class="hint">Admin credentials route to dashboard. User credentials route to client chat.</p>
+                <button id="login-submit" type="submit">Sign In -></button>
+                <p class="hint">Admin account opens dashboard. Other accounts open client chat.</p>
                 <p id="login-error" class="error"></p>
             </form>
 
@@ -49,13 +72,21 @@
                 <input id="signup-password" type="password" placeholder="Minimum 8 characters" minlength="8" required />
 
                 <button id="signup-submit" type="submit">Create Account</button>
-                <p class="hint">After sign-up, use Sign In to enter client chat.</p>
+                <p class="hint">After registration, you will be returned to sign-in automatically.</p>
                 <p id="signup-error" class="error"></p>
             </form>
 
             <div class="divider"><span>or</span></div>
-            <button id="google-signin" class="google-btn" type="button">Continue with Google</button>
+            <button id="google-signin" class="google-btn" type="button">
+                <span class="g-badge">G</span>
+                Sign in with Google
+            </button>
+            <p class="hint note">Google sign-in automatically creates user access. Set <code>ADMIN_EMAIL</code> to route your admin Google account to dashboard.</p>
             <p id="google-message" class="hint"></p>
+            <p class="switch-row">
+                <span id="switch-copy">Don't have an account?</span>
+                <button id="switch-mode" class="switch-btn" type="button">Create Account</button>
+            </p>
         </section>
     </main>
 

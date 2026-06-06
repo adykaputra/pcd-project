@@ -1,27 +1,39 @@
 (function () {
-  const loginTab = document.getElementById("tab-login");
-  const signupTab = document.getElementById("tab-signup");
   const loginForm = document.getElementById("login-form");
   const signupForm = document.getElementById("signup-form");
+  const switchModeButton = document.getElementById("switch-mode");
+  const switchCopy = document.getElementById("switch-copy");
+  const modeTitle = document.getElementById("auth-mode-title");
+  const modeSubtitle = document.getElementById("auth-mode-subtitle");
   const loginError = document.getElementById("login-error");
   const signupError = document.getElementById("signup-error");
   const googleMessage = document.getElementById("google-message");
   const googleButton = document.getElementById("google-signin");
   const banner = document.getElementById("auth-banner");
   const bootstrap = window.__AUTH_BOOTSTRAP__ || {};
+  let currentMode = "login";
 
-  if (!loginTab || !signupTab || !loginForm || !signupForm) {
+  if (!loginForm || !signupForm) {
     return;
   }
 
-  function toggleTab(mode) {
-    const loginActive = mode === "login";
-    loginTab.classList.toggle("active", loginActive);
-    signupTab.classList.toggle("active", !loginActive);
+  function toggleMode(mode) {
+    currentMode = mode === "signup" ? "signup" : "login";
+    const loginActive = currentMode === "login";
+    const signupActive = !loginActive;
     loginForm.classList.toggle("active", loginActive);
-    signupForm.classList.toggle("active", !loginActive);
+    signupForm.classList.toggle("active", signupActive);
     if (loginError) loginError.textContent = "";
     if (signupError) signupError.textContent = "";
+
+    if (modeTitle) modeTitle.textContent = loginActive ? "Welcome Back" : "Create Account";
+    if (modeSubtitle) {
+      modeSubtitle.textContent = loginActive
+        ? "Sign in to access your privacy firewall workspace."
+        : "Register once, then sign in to use your protected AI workspace.";
+    }
+    if (switchCopy) switchCopy.textContent = loginActive ? "Don't have an account?" : "Already have an account?";
+    if (switchModeButton) switchModeButton.textContent = loginActive ? "Create Account" : "Back to Sign In";
   }
 
   async function requestJson(url, payload) {
@@ -37,8 +49,9 @@
     return body;
   }
 
-  loginTab.addEventListener("click", () => toggleTab("login"));
-  signupTab.addEventListener("click", () => toggleTab("signup"));
+  switchModeButton?.addEventListener("click", () => {
+    toggleMode(currentMode === "login" ? "signup" : "login");
+  });
 
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -63,7 +76,7 @@
 
     try {
       await requestJson("/signup", { name, email, password });
-      toggleTab("login");
+      toggleMode("login");
       const loginEmail = document.getElementById("login-email");
       const loginPassword = document.getElementById("login-password");
       if (loginEmail) loginEmail.value = email;
@@ -88,4 +101,6 @@
     }
     window.location.href = "/auth/google/start";
   });
+
+  toggleMode("login");
 })();
