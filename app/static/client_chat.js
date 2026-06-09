@@ -18,6 +18,7 @@
   const quickButtons = Array.from(document.querySelectorAll(".quick-btn"));
   const bootstrap = window.__CLIENT_BOOTSTRAP__ || {};
   const authToken = String(bootstrap.authToken || "");
+  const REQUEST_TIMEOUT_MS = 30000;
   let lastAssistantText = "";
   let turns = 0;
 
@@ -99,6 +100,13 @@
     addMessage("user", prompt, "you");
     input.value = "";
     setTyping(true);
+    const submitButton = form.querySelector("button[type='submit']");
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Sending...";
+    }
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
       const response = await fetch("/client/chat", {
@@ -107,6 +115,7 @@
           "Content-Type": "application/json",
           ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
+        signal: controller.signal,
         body: JSON.stringify({
           prompt,
           provider: (providerInput?.value || "mock").trim(),
@@ -144,9 +153,22 @@
       updatePrivacyReport(payload);
       setIndicator("denied");
     } catch (err) {
-      addMessage("assistant", `Connection error: ${err}`, "error");
+      if (err && err.name === "AbortError") {
+        addMessage(
+          "assistant",
+          "I did not get a response from the model in time. If you selected Ollama, make sure it is running and the model exists, or switch provider to 'mock' for instant demo replies.",
+          "timeout"
+        );
+      } else {
+        addMessage("assistant", `Connection error: ${err}`, "error");
+      }
       setIndicator("denied");
     } finally {
+      window.clearTimeout(timeoutId);
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "Send";
+      }
       setTyping(false);
     }
   });

@@ -333,7 +333,11 @@ ollama pull llama3.2:3b
 export LLM_DEFAULT_PROVIDER=ollama
 export OLLAMA_BASE_URL=http://localhost:11434
 export OLLAMA_DEFAULT_MODEL=llama3.2:3b
+export OLLAMA_CONNECT_TIMEOUT_SECONDS=5
+export OLLAMA_TIMEOUT_SECONDS=90
 ```
+
+If chat appears to hang with Ollama selected, verify the model name is exact (`llama3.2:3b`) and Ollama is reachable from your app runtime.
 
 11. Optional: enable Google Sign-In (OAuth):
 

@@ -109,6 +109,8 @@ class OllamaAdapter(BaseLLMAdapter):
         self.provider_name = "ollama"
         self.base_url = (os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434") or "").rstrip("/")
         self.timeout_s = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "90"))
+        # Keep connection failures fast so chat UI does not appear frozen.
+        self.connect_timeout_s = int(os.getenv("OLLAMA_CONNECT_TIMEOUT_SECONDS", "5"))
 
     def send_prompt(self, prompt: str) -> Dict[str, Any]:
         endpoint = f"{self.base_url}/api/chat"
@@ -118,7 +120,11 @@ class OllamaAdapter(BaseLLMAdapter):
             "stream": False,
         }
         try:
-            response = requests.post(endpoint, json=payload, timeout=self.timeout_s)
+            response = requests.post(
+                endpoint,
+                json=payload,
+                timeout=(self.connect_timeout_s, self.timeout_s),
+            )
             response.raise_for_status()
         except requests.RequestException as exc:
             raise RuntimeError(
