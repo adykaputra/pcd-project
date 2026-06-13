@@ -2,7 +2,6 @@
   const resultSummary = document.getElementById("result-summary");
   const tokenInput = document.getElementById("admin-token");
   const datasetSelect = document.getElementById("benchmark-dataset");
-  const splitSelect = document.getElementById("benchmark-split");
   const qualityCards = document.getElementById("quality-cards");
   const policyBars = document.getElementById("policy-bars");
   const trendChart = document.getElementById("trend-chart");
@@ -236,33 +235,13 @@
     renderTrendChart(history);
   }
 
-  function renderHistoryRows(history) {
-    const tbody = document.getElementById("history-body");
-    if (!tbody || !Array.isArray(history)) return;
-    tbody.innerHTML = "";
-    for (const row of history) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${row.ts || "n/a"}</td>
-        <td>${row.dataset_version || "n/a"}</td>
-        <td>${row.dataset_split || "n/a"}</td>
-        <td>${row.leak_rate ?? "n/a"}</td>
-        <td>${row.utility_score ?? "n/a"}</td>
-        <td>${row.latency_ms ?? "n/a"}</td>
-        <td>${row.allow_count ?? 0}/${row.challenge_count ?? 0}/${row.block_count ?? 0}</td>
-      `;
-      tbody.appendChild(tr);
-    }
-  }
-
   async function refreshHistory() {
     try {
       const payload = await callApi("/privacy/benchmark/history?limit=20", { auth: true });
-      renderHistoryRows(payload.history || []);
       renderTrendChart(payload.history || []);
-      setViewer("Benchmark History", payload);
+      return payload;
     } catch (err) {
-      setViewer("History Error", { status: "error", message: String(err) });
+      return null;
     }
   }
 
@@ -327,28 +306,10 @@
     }
   });
 
-  document.getElementById("detokenize-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const text = document.getElementById("detokenize-text").value;
-    try {
-      const response = await callApi("/detokenize", {
-        method: "POST",
-        body: { text },
-        auth: true,
-      });
-      setViewer("Detokenize Result", response);
-      showToast("Detokenization completed.", "success");
-    } catch (err) {
-      setViewer("Detokenize Error", { status: "error", message: String(err) });
-      showToast("Detokenization failed.", "error");
-    }
-  });
-
   document.getElementById("btn-benchmark")?.addEventListener("click", async () => {
     try {
       const version = datasetSelect?.value || "v1";
-      const split = splitSelect?.value || "all";
-      const response = await callApi(`/privacy/benchmark?dataset_version=${encodeURIComponent(version)}&split=${encodeURIComponent(split)}&persist=1`, { auth: true });
+      const response = await callApi(`/privacy/benchmark?dataset_version=${encodeURIComponent(version)}&split=all&persist=1`, { auth: true });
       updateMetricsFromBenchmark(response.benchmark);
       setViewer("Benchmark Result", response);
       renderChartCenter(response.benchmark);
@@ -359,48 +320,6 @@
       showToast("Benchmark failed.", "error");
     }
   });
-
-  document.getElementById("btn-cross-split")?.addEventListener("click", async () => {
-    try {
-      const version = datasetSelect?.value || "v1";
-      const response = await callApi(`/privacy/benchmark?dataset_version=${encodeURIComponent(version)}&mode=cross_split&persist=0`, { auth: true });
-      updateMetricsFromBenchmark(response.benchmark);
-      setViewer("Cross-Split Benchmark", response);
-      renderChartCenter(response.benchmark);
-      showToast("Cross-split benchmark done.", "success");
-    } catch (err) {
-      setViewer("Cross-Split Error", { status: "error", message: String(err) });
-      showToast("Cross-split benchmark failed.", "error");
-    }
-  });
-
-  document.getElementById("btn-calibrate")?.addEventListener("click", async () => {
-    try {
-      const version = datasetSelect?.value || "v1";
-      const split = splitSelect?.value || "validation";
-      const response = await callApi(`/privacy/calibrate?dataset_version=${encodeURIComponent(version)}&split=${encodeURIComponent(split)}`, { auth: true });
-      setViewer("Calibration Result", response);
-      renderChartCenter(response);
-      showToast("Calibration completed.", "success");
-    } catch (err) {
-      setViewer("Calibration Error", { status: "error", message: String(err) });
-      showToast("Calibration failed.", "error");
-    }
-  });
-
-  document.getElementById("btn-autotune")?.addEventListener("click", async () => {
-    try {
-      const response = await callApi("/privacy/autotune?hours=168&min_samples=10", { auth: true });
-      setViewer("Autotune Recommendation", response);
-      renderChartCenter(response);
-      showToast("Autotune recommendation ready.", "success");
-    } catch (err) {
-      setViewer("Autotune Error", { status: "error", message: String(err) });
-      showToast("Autotune failed.", "error");
-    }
-  });
-
-  document.getElementById("btn-history")?.addEventListener("click", refreshHistory);
 
   document.getElementById("btn-summary")?.addEventListener("click", async () => {
     try {

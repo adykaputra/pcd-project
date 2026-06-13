@@ -61,7 +61,7 @@
 
     try {
       const payload = await requestJson("/login", { email, password });
-      window.location.href = payload.redirect_url || "/";
+      window.location.replace(payload.redirect_url || "/");
     } catch (err) {
       if (loginError) loginError.textContent = err instanceof Error ? err.message : String(err);
     }

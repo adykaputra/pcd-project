@@ -128,7 +128,7 @@ def dashboard():
     for log in logs:
         identity = (log.get("user_identity") or "").strip() if isinstance(log.get("user_identity"), str) else ""
         session_id = (log.get("session_id") or "").strip() if isinstance(log.get("session_id"), str) else ""
-        if not identity or not session_id:
+        if not identity or not session_id or identity == "unknown" or session_id == "unknown":
             continue
         key = (identity, session_id)
         if key in seen:
@@ -152,6 +152,8 @@ def dashboard():
             continue
         identity = (log.get("user_identity") or "unknown").strip() if isinstance(log.get("user_identity"), str) else "unknown"
         session_id = (log.get("session_id") or "unknown").strip() if isinstance(log.get("session_id"), str) else "unknown"
+        if identity == "unknown" or session_id == "unknown":
+            continue
         key = f"{identity}::{session_id}"
         if key not in thread_map:
             thread_map[key] = {

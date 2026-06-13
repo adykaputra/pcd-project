@@ -21,7 +21,6 @@
                 <button class="menu-item" data-view="generate">Prompt Test</button>
                 <button class="menu-item" data-view="governance">Quality Checks</button>
                 <button class="menu-item" data-view="audit">Evidence Log</button>
-                <button class="menu-item" data-view="settings">Settings</button>
             </nav>
             <div class="status-box">
                 <div class="status-pill online">Gateway Online</div>
@@ -104,45 +103,43 @@
                     <p class="muted">Use this as assessor proof: the response shows whether tokenization was applied before model dispatch.</p>
                 </article>
 
-                <article id="panel-detokenize" class="panel view-section" data-view="generate">
-                    <h3>Admin Detokenize</h3>
-                    <form id="detokenize-form">
-                        <label>Tokenized Text</label>
-                        <textarea id="detokenize-text" rows="4" placeholder="Paste tokenized content..."></textarea>
-                        <button type="submit">Restore Original Text</button>
-                    </form>
-                </article>
-
                 <article id="panel-governance" class="panel view-section" data-view="dashboard,governance">
                     <h3>Quality & Policy Checks</h3>
-                    <div class="field-row">
-                        <div>
-                            <label>Dataset Version</label>
-                            <select id="benchmark-dataset">
-                                {% for version in available_dataset_versions %}
-                                <option value="{{ version }}" {% if version == dataset_version %}selected{% endif %}>{{ version }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div>
-                            <label>Split</label>
-                            <select id="benchmark-split">
-                                <option value="all">all</option>
-                                <option value="train">train</option>
-                                <option value="validation">validation</option>
-                                <option value="test">test</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label>Dataset Version</label>
+                        <select id="benchmark-dataset">
+                            {% for version in available_dataset_versions %}
+                            <option value="{{ version }}" {% if version == dataset_version %}selected{% endif %}>{{ version }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="action-row">
                         <button id="btn-benchmark" type="button">Run Privacy Check</button>
-                        <button id="btn-cross-split" type="button">Advanced Test</button>
-                        <button id="btn-calibrate" type="button">Tune Thresholds</button>
-                        <button id="btn-autotune" type="button">Auto Tune</button>
-                        <button id="btn-history" type="button">Refresh Trend</button>
                         <button id="btn-summary" type="button">Show Audit Summary</button>
                     </div>
                 </article>
+            </section>
+
+            <section class="panel wide view-section" data-view="dashboard">
+                <h3>What each action shows</h3>
+                <div class="proof-grid">
+                    <div class="proof-card">
+                        <span>Run Generate</span>
+                        <strong>Single prompt result</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Run Privacy Check</span>
+                        <strong>Leak and detection metrics</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Show Audit Summary</span>
+                        <strong>Block/challenge totals</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Evidence Log</span>
+                        <strong>User + session trace</strong>
+                    </div>
+                </div>
             </section>
 
             <section class="panel wide view-section" data-view="dashboard,audit">
@@ -282,26 +279,6 @@
                             {% endfor %}
                         </tbody>
                     </table>
-                </div>
-            </section>
-
-            <section class="panel wide view-section" data-view="settings">
-                <h3>Operations Settings</h3>
-                <div class="field-row">
-                    <div class="settings-card">
-                        <h4>Provider Mode</h4>
-                        <p class="muted">Use <strong>mock</strong> for offline-safe demos, <strong>openai</strong> for cloud model calls, or <strong>ollama</strong> for local models.</p>
-                        <code>LLM_DEFAULT_PROVIDER=mock|openai|ollama</code>
-                    </div>
-                    <div class="settings-card">
-                        <h4>Security Secrets</h4>
-                        <p class="muted">Set strong runtime secrets in `.env` for production deployment.</p>
-                        <code>JWT_SECRET, AUDIT_HMAC_KEY, PII_VAULT_KEY</code>
-                    </div>
-                </div>
-                <div class="settings-links">
-                    <a href="/healthz" target="_blank" rel="noopener noreferrer">Open Health Endpoint</a>
-                    <a href="/audit/dashboard" target="_blank" rel="noopener noreferrer">Open Full Audit Dashboard</a>
                 </div>
             </section>
         </main>
