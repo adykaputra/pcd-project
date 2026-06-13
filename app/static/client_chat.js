@@ -16,13 +16,15 @@
   const reportProof = document.getElementById("report-proof");
   const clearButton = document.getElementById("clear-chat");
   const copyButton = document.getElementById("copy-last");
+  const logoutButton = document.getElementById("logout-btn");
   const historyList = document.getElementById("history-list");
   const quickButtons = Array.from(document.querySelectorAll(".quick-btn"));
   const bootstrap = window.__CLIENT_BOOTSTRAP__ || {};
   const displayName = String(bootstrap.displayName || "Client");
+  const userIdentity = String(bootstrap.userIdentity || displayName || "anonymous").toLowerCase();
   const authToken = String(bootstrap.authToken || "");
   const REQUEST_TIMEOUT_MS = 30000;
-  const HISTORY_KEY = "privacy_firewall_chat_sessions_v1";
+  const HISTORY_KEY = `privacy_firewall_chat_sessions_v2:${userIdentity}`;
   const MAX_HISTORY = 20;
   let lastAssistantText = "";
   let turns = 0;
@@ -281,6 +283,9 @@
   }
 
   if (!form) return;
+  if (window.location.search.includes("token=")) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
   ensureSessionState();
 
   quickButtons.forEach((btn) => {
@@ -303,6 +308,15 @@
   clearButton?.addEventListener("click", startNewSession);
   historyList?.addEventListener("click", (event) => {
     handleSessionSelection(event.target);
+  });
+  logoutButton?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    try {
+      await fetch("/logout", { method: "POST", headers: { "Content-Type": "application/json" } });
+    } catch {
+      // ignore network errors during logout
+    }
+    window.location.replace("/");
   });
   copyButton?.addEventListener("click", async () => {
     if (!lastAssistantText) return;

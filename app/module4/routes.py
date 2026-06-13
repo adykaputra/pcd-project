@@ -14,7 +14,7 @@ def _is_admin_request(req):
     if auth and auth.startswith('Bearer '):
         token = auth.split(' ', 1)[1]
     else:
-        token = req.args.get('token')
+        token = req.args.get('token') or req.cookies.get('pf_session')
 
     if token:
         secret = os.getenv('JWT_SECRET', 'very-secret')
@@ -144,6 +144,34 @@ def dashboard():
         )
         if len(recent_sessions) >= 8:
             break
+
+    thread_map = {}
+    for log in logs:
+        proof = log.get("dispatch_proof")
+        if not isinstance(proof, dict):
+            continue
+        identity = (log.get("user_identity") or "unknown").strip() if isinstance(log.get("user_identity"), str) else "unknown"
+        session_id = (log.get("session_id") or "unknown").strip() if isinstance(log.get("session_id"), str) else "unknown"
+        key = f"{identity}::{session_id}"
+        if key not in thread_map:
+            thread_map[key] = {
+                "user_identity": identity,
+                "session_id": session_id,
+                "latest_ts": log.get("ts"),
+                "messages": [],
+            }
+        thread_map[key]["messages"].append(
+            {
+                "ts": log.get("ts"),
+                "redacted_prompt": proof.get("tokenized_prompt_full") or proof.get("tokenized_prompt_preview"),
+                "policy_action": ((log.get("metadata") or {}).get("risk_assessment") or {}).get("policy_action"),
+            }
+        )
+    sanitized_threads = sorted(
+        thread_map.values(),
+        key=lambda item: str(item.get("latest_ts") or ""),
+        reverse=True,
+    )
     
     dataset_version = "v2" if "v2" in list_dataset_versions() else "v1"
     benchmark = run_privacy_benchmark(dataset_version=dataset_version, split="all")
@@ -166,6 +194,7 @@ def dashboard():
         initial_token=request.args.get("token"),
         latest_dispatch_proof=latest_dispatch_proof,
         recent_sessions=recent_sessions,
+        sanitized_threads=sanitized_threads[:20],
     ), 200
 
 

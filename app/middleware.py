@@ -55,4 +55,14 @@ def init_request_middleware(app):
         except Exception:
             # If no request context, ignore
             pass
+
+        # Prevent browser history/cache from exposing protected pages after sign-out.
+        try:
+            path = request.path or ""
+            if not path.startswith("/static/"):
+                response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+        except Exception:
+            pass
         return response

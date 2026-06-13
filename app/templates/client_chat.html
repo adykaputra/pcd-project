@@ -33,7 +33,7 @@
                     <li>You get policy insight after each response.</li>
                 </ul>
             </div>
-            <a href="/" class="signout-link">Back to Sign In</a>
+            <a id="logout-btn" href="/" class="signout-link">Sign Out</a>
         </aside>
 
         <main class="chat-main">
@@ -97,6 +97,7 @@
     <script>
         window.__CLIENT_BOOTSTRAP__ = {
             displayName: {{ (display_name or "Client") | tojson }},
+            userIdentity: {{ (user_identity or "") | tojson }},
             authToken: {{ (auth_token or "") | tojson }},
         };
     </script>

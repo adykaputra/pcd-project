@@ -28,12 +28,12 @@
                 <div class="status-pill secure">Policy Guard Active</div>
             </div>
             <div class="token-box">
-                <label for="admin-token">Admin JWT</label>
+                <label for="admin-token">Admin JWT (optional override)</label>
                 <textarea id="admin-token" rows="5" placeholder="Paste token here">{{ initial_token or "" }}</textarea>
             </div>
             <div class="quick-links">
-                <a href="/">Sign In</a>
-                <a href="/client?token={{ initial_token or '' }}">Client Chat</a>
+                <a id="dashboard-logout" href="/">Sign Out</a>
+                <a href="/client">Client Chat</a>
             </div>
         </aside>
 
@@ -172,6 +172,33 @@
                 </div>
                 {% else %}
                 <p class="muted">No authenticated user sessions recorded yet. Start a client chat first.</p>
+                {% endif %}
+            </section>
+
+            <section class="panel wide view-section" data-view="dashboard,audit">
+                <h3>Sanitized User Session Threads (Admin-safe)</h3>
+                <p class="muted">Click any user session to view the fully redacted prompts that were sent to the model. Raw PII is never shown here.</p>
+                {% if sanitized_threads %}
+                <div class="thread-list">
+                    {% for thread in sanitized_threads %}
+                    <details class="thread-item">
+                        <summary>
+                            <span>{{ thread.user_identity }}</span>
+                            <span class="thread-meta">session {{ thread.session_id }} · {{ thread.latest_ts }}</span>
+                        </summary>
+                        <div class="thread-messages">
+                            {% for message in thread.messages %}
+                            <div class="thread-message">
+                                <p class="thread-ts">{{ message.ts }}{% if message.policy_action %} · {{ message.policy_action }}{% endif %}</p>
+                                <code>{{ message.redacted_prompt }}</code>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="muted">No sanitized user thread yet. Send client prompts first.</p>
                 {% endif %}
             </section>
 

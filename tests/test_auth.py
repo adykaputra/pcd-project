@@ -1,8 +1,14 @@
 import pytest
 import jwt
 import os
+import re
 from uuid import uuid4
-from urllib.parse import urlparse, parse_qs
+
+
+def _token_from_set_cookie(resp):
+    cookie = resp.headers.get("Set-Cookie", "")
+    match = re.search(r"pf_session=([^;]+)", cookie)
+    return match.group(1) if match else ""
 
 
 def test_login_success_and_failure(client):
@@ -32,7 +38,8 @@ def test_user_signup_then_login(client):
     assert login.status_code == 200
     body = login.get_json()
     assert body.get("role") == "user"
-    assert body.get("redirect_url", "").startswith("/client?token=")
+    assert body.get("redirect_url") == "/client"
+    assert _token_from_set_cookie(login)
 
 
 def test_google_start_redirects_to_landing_when_not_configured(client, monkeypatch):
@@ -58,9 +65,9 @@ def test_google_callback_routes_user_to_client(client, monkeypatch):
     resp = client.get("/auth/google/callback?code=fake&state=fake")
     assert resp.status_code == 302
     location = resp.headers.get("Location", "")
-    assert location.startswith("/client?token=")
+    assert location == "/client"
 
-    token = parse_qs(urlparse(location).query).get("token", [""])[0]
+    token = _token_from_set_cookie(resp)
     payload = jwt.decode(token, os.getenv("JWT_SECRET", "very-secret"), algorithms=["HS256"])
     assert payload.get("role") == "user"
     assert payload.get("name") == "OAuth User"
@@ -81,8 +88,19 @@ def test_google_callback_routes_admin_to_dashboard(client, monkeypatch):
     resp = client.get("/auth/google/callback?code=fake&state=fake")
     assert resp.status_code == 302
     location = resp.headers.get("Location", "")
-    assert location.startswith("/audit/dashboard?token=")
+    assert location == "/audit/dashboard"
 
-    token = parse_qs(urlparse(location).query).get("token", [""])[0]
+    token = _token_from_set_cookie(resp)
     payload = jwt.decode(token, os.getenv("JWT_SECRET", "very-secret"), algorithms=["HS256"])
     assert payload.get("role") == "admin"
+
+
+def test_logout_clears_cookie(client):
+    login = client.post("/login", json={"password": "admin-pass"})
+    assert login.status_code == 200
+    assert "pf_session=" in (login.headers.get("Set-Cookie") or "")
+
+    logout = client.post("/logout")
+    assert logout.status_code == 200
+    cookie = logout.headers.get("Set-Cookie", "")
+    assert "pf_session=;" in cookie

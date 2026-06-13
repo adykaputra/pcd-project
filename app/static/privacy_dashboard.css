@@ -348,6 +348,64 @@ button:hover {
   line-height: 1.45;
 }
 
+.thread-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.thread-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(10, 17, 38, 0.72);
+  padding: 0.1rem 0.45rem 0.5rem;
+}
+
+.thread-item summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.35rem;
+}
+
+.thread-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.thread-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.thread-messages {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0 0.2rem;
+}
+
+.thread-message {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(21, 29, 52, 0.72);
+  padding: 0.5rem 0.55rem;
+}
+
+.thread-ts {
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.thread-message code {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #caeaff;
+  font-size: 0.82rem;
+}
+
 .settings-card {
   border: 1px solid var(--border);
   border-radius: 12px;

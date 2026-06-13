@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app, redirect, url_for
+from flask import Blueprint, request, jsonify, current_app, redirect, url_for, make_response
 import os
 import jwt
 import re
@@ -65,11 +65,7 @@ def _build_token_payload(*, role: str, email: str, name: str):
 def _build_login_result(*, role: str, email: str, name: str):
     payload = _build_token_payload(role=role, email=email, name=name)
     token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
-    redirect_url = (
-        f"/audit/dashboard?token={token}"
-        if role == "admin"
-        else f"/client?token={token}"
-    )
+    redirect_url = "/audit/dashboard" if role == "admin" else "/client"
     return {
         "status": "ok",
         "token": token,
@@ -80,13 +76,30 @@ def _build_login_result(*, role: str, email: str, name: str):
     }
 
 
+def _with_auth_cookie(response, token: str):
+    secure_cookie = str(os.getenv("COOKIE_SECURE", "0")).lower() in {"1", "true", "yes"}
+    response.set_cookie(
+        "pf_session",
+        token,
+        max_age=TOKEN_EXP_MINUTES * 60,
+        httponly=True,
+        samesite="Lax",
+        secure=secure_cookie,
+        path="/",
+    )
+    return response
+
+
 def _issue_login_response(*, role: str, email: str, name: str):
-    return jsonify(_build_login_result(role=role, email=email, name=name)), 200
+    result = _build_login_result(role=role, email=email, name=name)
+    response = make_response(jsonify(result), 200)
+    return _with_auth_cookie(response, result["token"])
 
 
 def _issue_login_redirect(*, role: str, email: str, name: str):
     result = _build_login_result(role=role, email=email, name=name)
-    return redirect(result["redirect_url"])
+    response = make_response(redirect(result["redirect_url"]))
+    return _with_auth_cookie(response, result["token"])
 
 
 def _upsert_google_user(email: str, display_name: str) -> Tuple[str, str]:
@@ -288,3 +301,10 @@ def google_callback():
     name = str((user_info or {}).get("name") or (user_info or {}).get("given_name") or "").strip()
     role, display_name = _upsert_google_user(email=email, display_name=name)
     return _issue_login_redirect(role=role, email=email, name=display_name)
+
+
+@bp.route('/logout', methods=['POST'])
+def logout():
+    response = jsonify({"status": "ok", "message": "Signed out"})
+    response.delete_cookie("pf_session", path="/")
+    return response, 200

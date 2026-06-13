@@ -24,6 +24,10 @@ def _decode_bearer_token(req):
     return None
 
 
+def _extract_auth_token(req):
+    return _decode_bearer_token(req) or req.args.get("token") or req.cookies.get("pf_session")
+
+
 def _decode_auth_payload(token: Optional[str]):
     if not token:
         return None
@@ -47,7 +51,7 @@ def landing():
 @bp.route('/client', methods=['GET'])
 def client_portal():
     """Client-facing chat UI."""
-    token = request.args.get("token") or _decode_bearer_token(request)
+    token = _extract_auth_token(request)
     payload = _decode_auth_payload(token)
     if not payload:
         return redirect(url_for("module3.landing"))
@@ -65,9 +69,10 @@ def client_portal():
     return render_template(
         "client_chat.html",
         display_name=display_name,
+        user_identity=(payload.get("sub") or "").strip().lower(),
         default_provider=default_provider,
         default_model=default_model,
-        auth_token=token,
+        auth_token=_decode_bearer_token(request) or request.args.get("token") or "",
     ), 200
 
 
@@ -106,7 +111,7 @@ def healthz():
 
 
 def _is_admin_request(req) -> bool:
-    token = _decode_bearer_token(req) or req.args.get("token")
+    token = _extract_auth_token(req)
     payload = _decode_auth_payload(token)
     if payload:
         return payload.get('role') == 'admin'
@@ -192,6 +197,7 @@ def _run_firewall_pipeline(
     redaction_proof = {
         "model_input_is_tokenized": True,
         "redaction_applied": bool(tokenization["had_pii"]),
+        "tokenized_prompt_full": tokenized_prompt[:4000],
         "tokenized_prompt_preview": (tokenized_prompt[:220] + "...") if len(tokenized_prompt) > 220 else tokenized_prompt,
         "original_prompt_sha256": hashlib.sha256(inbound_prompt.encode("utf-8")).hexdigest()[:16],
         "user_identity": getattr(g, "user_identity", None),
@@ -330,7 +336,7 @@ def generate():
 @bp.route('/client/chat', methods=['POST'])
 def client_chat():
     """Client-facing chat endpoint backed by the privacy firewall."""
-    token = _decode_bearer_token(request)
+    token = _extract_auth_token(request)
     payload = _decode_auth_payload(token)
     if not payload or payload.get("role") not in {"user", "admin"}:
         return jsonify({"status": "denied", "message": "Authentication required"}), 401

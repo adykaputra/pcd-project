@@ -10,6 +10,7 @@
   const viewButtons = Array.from(document.querySelectorAll(".menu-item[data-view]"));
   const viewSections = Array.from(document.querySelectorAll(".view-section"));
   const bootstrap = window.__DASHBOARD_BOOTSTRAP__ || {};
+  const logoutButton = document.getElementById("dashboard-logout");
 
   function setViewer(title, payload) {
     if (!resultSummary) return;
@@ -66,10 +67,9 @@
     const headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
     if (options.auth) {
       const token = getToken();
-      if (!token) {
-        throw new Error("Admin token missing. Login first or paste token in sidebar.");
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
       }
-      headers.Authorization = `Bearer ${token}`;
     }
 
     const response = await fetch(path, {
@@ -418,8 +418,21 @@
     button.addEventListener("click", () => setActiveView(button.dataset.view || "dashboard"));
   });
 
+  logoutButton?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    try {
+      await fetch("/logout", { method: "POST", headers: { "Content-Type": "application/json" } });
+    } catch {
+      // ignore logout transport errors
+    }
+    window.location.replace("/");
+  });
+
   setActiveView("dashboard");
   renderChartCenter(bootstrap.benchmark || {});
+  if (window.location.search.includes("token=")) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
 
   if (getToken()) {
     refreshDatasetVersions();

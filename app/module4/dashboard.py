@@ -15,6 +15,7 @@ def render_dashboard(
     initial_token=None,
     latest_dispatch_proof=None,
     recent_sessions=None,
+    sanitized_threads=None,
 ):
     if logs is None:
         logs = []
@@ -39,4 +40,5 @@ def render_dashboard(
         initial_token=initial_token,
         latest_dispatch_proof=latest_dispatch_proof,
         recent_sessions=recent_sessions or [],
+        sanitized_threads=sanitized_threads or [],
     )
