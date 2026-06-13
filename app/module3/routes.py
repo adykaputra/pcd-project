@@ -122,6 +122,12 @@ def _run_firewall_pipeline(
     block_override: int | None = None,
 ):
     """Run tokenization, policy evaluation, and provider dispatch."""
+    requested_provider = str(provider or os.getenv("LLM_DEFAULT_PROVIDER", "mock")).strip().lower()
+    requested_model = str(model or "").strip().lower()
+    # Common UX pitfall: user selects mock but types a local model name.
+    if requested_provider == "mock" and any(tag in requested_model for tag in ("llama", "mistral", "qwen", "gemma")):
+        requested_provider = "ollama"
+
     tokenization = tokenize_prompt_for_llm(inbound_prompt)
     tokenized_prompt = tokenization["tokenized_prompt"]
     remaining = tokenization["remaining_pii_counts"]
@@ -184,7 +190,7 @@ def _run_firewall_pipeline(
     from flask import g
     current_app.logger.info(
         "[PRIVACY_FIREWALL] Forwarding tokenized prompt to provider=%s model=%s",
-        provider,
+        requested_provider,
         model,
         extra={
             "event_type": "PII_TOKENIZED",
@@ -203,17 +209,27 @@ def _run_firewall_pipeline(
     try:
         from .adapters import get_adapter
 
-        adapter = get_adapter(provider=provider, model=model)
+        adapter = get_adapter(provider=requested_provider, model=model)
         result = adapter.send_prompt(tokenized_prompt)
         resolved_provider = result.get("provider")
         if not isinstance(resolved_provider, str) or not resolved_provider:
             provider_name = getattr(adapter, "provider_name", None)
-            resolved_provider = provider_name if isinstance(provider_name, str) and provider_name else provider
+            resolved_provider = provider_name if isinstance(provider_name, str) and provider_name else requested_provider
     except ValueError as e:
         return {"status": "denied", "message": str(e)}, 400
     except Exception as e:
-        current_app.logger.error("[LLM_PROXY] Adapter error: %s", e)
-        return {"status": "error", "message": "LLM adapter failed to process the request."}, 500
+        if requested_provider == "ollama":
+            # Keep chat responsive even when Ollama is unavailable.
+            current_app.logger.warning("[LLM_PROXY] Ollama failed, falling back to mock: %s", e)
+            from .adapters import get_adapter
+
+            adapter = get_adapter(provider="mock", model=model)
+            result = adapter.send_prompt(tokenized_prompt)
+            resolved_provider = "mock"
+            result["fallback_reason"] = "ollama_unavailable"
+        else:
+            current_app.logger.error("[LLM_PROXY] Adapter error: %s", e)
+            return {"status": "error", "message": "LLM adapter failed to process the request."}, 500
 
     usage = result.get("usage") or {}
     if usage:
@@ -326,6 +342,7 @@ def client_chat():
                 "reply": payload.get("response"),
                 "provider": payload.get("provider"),
                 "offline_mode": payload.get("offline_mode", False),
+                "fallback_reason": payload.get("fallback_reason"),
                 "risk_assessment": payload.get("risk_assessment"),
                 "tokenization": payload.get("tokenization"),
             }

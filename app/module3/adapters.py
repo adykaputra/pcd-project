@@ -85,15 +85,37 @@ class MockAdapter(BaseLLMAdapter):
         super().__init__(model=model or "mock-privacy-demo", **kwargs)
         self.provider_name = "mock"
 
-    def send_prompt(self, prompt: str) -> Dict[str, Any]:
-        preview = (prompt or "").strip().replace("\n", " ")
+    def _compose_reply(self, prompt: str) -> str:
+        text = (prompt or "").strip()
+        lower = text.lower()
+        if not text:
+            return "Hi! Tell me what you want help with and I will respond right away."
+        if any(greet in lower for greet in ("hi", "hello", "hey", "salam")):
+            return "Hey! I am ready to help. Ask me anything and I will reply in a clear, practical way."
+        if "your name" in lower or "who are you" in lower:
+            return "I am your Privacy Firewall Assistant. I help with answers while protecting sensitive information."
+        if "my name" in lower:
+            return "Nice to meet you. I will keep your personal identifiers protected while we chat."
+        if "summarize" in lower or "summary" in lower:
+            return "Summary: the key idea is to reduce risk, keep data private, and apply clear controls before sharing with AI."
+        if "what" in lower and "safe" in lower and "data" in lower:
+            return (
+                "Share non-sensitive context only. Avoid IDs, phone numbers, private addresses, credentials, "
+                "and anything that can identify a real person."
+            )
+        if "?" in text:
+            return (
+                "Good question. Based on what you asked, start with a short objective, include only necessary context, "
+                "and avoid private identifiers. I can refine this further if you want."
+            )
+        preview = text.replace("\n", " ")
         if len(preview) > 180:
             preview = f"{preview[:180]}..."
+        return f"I received your request: \"{preview}\". I can now help you turn it into a clearer, safer prompt."
+
+    def send_prompt(self, prompt: str) -> Dict[str, Any]:
         return {
-            "text": (
-                "Mock provider response (offline mode). "
-                f"Your tokenized prompt was processed safely: {preview}"
-            ),
+            "text": self._compose_reply(prompt),
             "usage": {"prompt_tokens": len((prompt or "").split()), "completion_tokens": 18, "total_tokens": len((prompt or "").split()) + 18},
             "provider": "mock",
             "offline_mode": True,

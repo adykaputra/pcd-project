@@ -74,9 +74,9 @@
                     <label>
                         Provider
                         <select id="provider">
-                            <option value="mock" {% if default_provider == "mock" %}selected{% endif %}>mock</option>
-                            <option value="ollama" {% if default_provider == "ollama" %}selected{% endif %}>ollama</option>
-                            <option value="openai" {% if default_provider == "openai" %}selected{% endif %}>openai</option>
+                            <option value="ollama" {% if default_provider == "ollama" %}selected{% endif %}>ollama (live local)</option>
+                            <option value="openai" {% if default_provider == "openai" %}selected{% endif %}>openai (live cloud)</option>
+                            <option value="mock" {% if default_provider == "mock" %}selected{% endif %}>mock (offline demo)</option>
                         </select>
                     </label>
                     <label>

@@ -346,6 +346,18 @@
       }
 
       if (payload.status === "ok") {
+        if (payload.fallback_reason === "ollama_unavailable") {
+          appendMessage(
+            "system",
+            "Live Ollama model is unavailable right now, so I switched to offline demo mode to keep chat responsive.",
+            "system"
+          );
+          appendEntry(
+            "system",
+            "Live Ollama model is unavailable right now, so I switched to offline demo mode to keep chat responsive.",
+            "system"
+          );
+        }
         const streamed = await streamAssistantText(
           payload.reply || "No response text returned.",
           `assistant · ${payload.provider || "unknown"}`
