@@ -13,6 +13,8 @@ def render_dashboard(
     dataset_version=None,
     available_dataset_versions=None,
     initial_token=None,
+    latest_dispatch_proof=None,
+    recent_sessions=None,
 ):
     if logs is None:
         logs = []
@@ -35,4 +37,6 @@ def render_dashboard(
         dataset_version=dataset_version,
         available_dataset_versions=available_dataset_versions or [],
         initial_token=initial_token,
+        latest_dispatch_proof=latest_dispatch_proof,
+        recent_sessions=recent_sessions or [],
     )

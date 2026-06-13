@@ -3,6 +3,7 @@ from app.audit import get_manager
 from datetime import datetime, timedelta
 import os
 import jwt
+import json
 
 bp = Blueprint('module4', __name__, url_prefix='/audit')
 
@@ -65,9 +66,9 @@ def dashboard():
     conn = mgr._connect()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, ts, event_type, request_id, user_role, endpoint, message, 
+        SELECT id, ts, event_type, request_id, user_role, endpoint, message,
                count_id, count_phone, count_email, winning_tool, 
-               tool_a_counts, tool_b_counts, tool_c_counts, signature
+               tool_a_counts, tool_b_counts, tool_c_counts, signature, metadata
         FROM audit_events 
         ORDER BY ts DESC 
         LIMIT 100
@@ -78,6 +79,14 @@ def dashboard():
     # Convert rows to dict-like objects for template rendering
     logs = []
     for row in rows:
+        try:
+            metadata = json.loads(row[15]) if row[15] else {}
+        except Exception:
+            metadata = {}
+        dispatch_proof = metadata.get("dispatch_proof") if isinstance(metadata, dict) else None
+        user_identity = metadata.get("user_identity") if isinstance(metadata, dict) else None
+        session_id = metadata.get("session_id") if isinstance(metadata, dict) else None
+
         logs.append({
             'id': row[0],
             'ts': row[1],
@@ -94,7 +103,47 @@ def dashboard():
             'tool_b_counts': row[12],
             'tool_c_counts': row[13],
             'signature': row[14],
+            'metadata': metadata,
+            'dispatch_proof': dispatch_proof,
+            'user_identity': user_identity,
+            'session_id': session_id,
         })
+
+    latest_dispatch_proof = next(
+        (
+            {
+                "ts": log.get("ts"),
+                "user_identity": log.get("user_identity"),
+                "session_id": log.get("session_id"),
+                "proof": log.get("dispatch_proof"),
+            }
+            for log in logs
+            if log.get("event_type") == "PII_TOKENIZED" and isinstance(log.get("dispatch_proof"), dict)
+        ),
+        None,
+    )
+
+    recent_sessions = []
+    seen = set()
+    for log in logs:
+        identity = (log.get("user_identity") or "").strip() if isinstance(log.get("user_identity"), str) else ""
+        session_id = (log.get("session_id") or "").strip() if isinstance(log.get("session_id"), str) else ""
+        if not identity or not session_id:
+            continue
+        key = (identity, session_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        recent_sessions.append(
+            {
+                "ts": log.get("ts"),
+                "user_identity": identity,
+                "session_id": session_id,
+                "event_type": log.get("event_type"),
+            }
+        )
+        if len(recent_sessions) >= 8:
+            break
     
     dataset_version = "v2" if "v2" in list_dataset_versions() else "v1"
     benchmark = run_privacy_benchmark(dataset_version=dataset_version, split="all")
@@ -115,6 +164,8 @@ def dashboard():
         dataset_version=dataset_version,
         available_dataset_versions=list_dataset_versions(),
         initial_token=request.args.get("token"),
+        latest_dispatch_proof=latest_dispatch_proof,
+        recent_sessions=recent_sessions,
     ), 200
 
 

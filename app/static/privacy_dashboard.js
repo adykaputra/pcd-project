@@ -1,5 +1,5 @@
 (function () {
-  const viewer = document.getElementById("response-viewer");
+  const resultSummary = document.getElementById("result-summary");
   const tokenInput = document.getElementById("admin-token");
   const datasetSelect = document.getElementById("benchmark-dataset");
   const splitSelect = document.getElementById("benchmark-split");
@@ -12,8 +12,28 @@
   const bootstrap = window.__DASHBOARD_BOOTSTRAP__ || {};
 
   function setViewer(title, payload) {
-    const body = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
-    viewer.textContent = `${title}\n${"=".repeat(title.length)}\n${body}`;
+    if (!resultSummary) return;
+    if (typeof payload === "string") {
+      resultSummary.textContent = `${title}: ${payload}`;
+      return;
+    }
+    if (!payload || typeof payload !== "object") {
+      resultSummary.textContent = `${title}: completed.`;
+      return;
+    }
+    const status = payload.status ? `Status: ${payload.status}. ` : "";
+    const message = payload.message ? `${payload.message}. ` : "";
+    const details = [];
+    if (payload.summary?.total_blocked_last_24h !== undefined) {
+      details.push(`blocked_last_24h=${payload.summary.total_blocked_last_24h}`);
+    }
+    if (payload.benchmark?.metrics?.core_pii_leak_rate !== undefined) {
+      details.push(`leak_rate=${payload.benchmark.metrics.core_pii_leak_rate}`);
+    }
+    if (payload.calibration?.recommended_challenge_threshold !== undefined) {
+      details.push(`challenge_threshold=${payload.calibration.recommended_challenge_threshold}`);
+    }
+    resultSummary.textContent = `${title}: ${status}${message}${details.length ? `(${details.join(", ")})` : ""}`.trim();
   }
 
   function showToast(message, type = "success") {

@@ -1,4 +1,5 @@
 import os
+import hashlib
 import jwt
 from datetime import datetime
 from typing import Optional
@@ -188,6 +189,15 @@ def _run_firewall_pipeline(
         }, 409
 
     from flask import g
+    redaction_proof = {
+        "model_input_is_tokenized": True,
+        "redaction_applied": bool(tokenization["had_pii"]),
+        "tokenized_prompt_preview": (tokenized_prompt[:220] + "...") if len(tokenized_prompt) > 220 else tokenized_prompt,
+        "original_prompt_sha256": hashlib.sha256(inbound_prompt.encode("utf-8")).hexdigest()[:16],
+        "user_identity": getattr(g, "user_identity", None),
+        "user_name": getattr(g, "user_name", None),
+        "session_id": getattr(g, "session_id", None),
+    }
     current_app.logger.info(
         "[PRIVACY_FIREWALL] Forwarding tokenized prompt to provider=%s model=%s",
         requested_provider,
@@ -202,7 +212,12 @@ def _run_firewall_pipeline(
                 "email": tokenization["token_counts"].get("email", 0),
                 "phone": tokenization["token_counts"].get("phone", 0),
             },
-            "metadata": {"token_counts": tokenization["token_counts"], "risk_assessment": risk, "risk_score": risk.get("risk_score")},
+            "metadata": {
+                "token_counts": tokenization["token_counts"],
+                "risk_assessment": risk,
+                "risk_score": risk.get("risk_score"),
+                "dispatch_proof": redaction_proof,
+            },
         },
     )
 
@@ -259,6 +274,7 @@ def _run_firewall_pipeline(
             "ner_backend": tokenization.get("ner_backend"),
             "ner_entities_detected": tokenization.get("ner_entities_detected"),
         },
+        "dispatch_proof": redaction_proof,
         "risk_assessment": risk,
     }, 200
 
@@ -345,6 +361,7 @@ def client_chat():
                 "fallback_reason": payload.get("fallback_reason"),
                 "risk_assessment": payload.get("risk_assessment"),
                 "tokenization": payload.get("tokenization"),
+                "dispatch_proof": payload.get("dispatch_proof"),
             }
         ), 200
 

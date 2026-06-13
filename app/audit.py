@@ -277,6 +277,7 @@ from datetime import datetime
 import os
 import hmac
 import hashlib
+from flask import has_request_context, g
 
 
 class AuditHandler(logging.Handler):
@@ -297,11 +298,21 @@ class AuditHandler(logging.Handler):
                 return
 
             mgr = get_manager()
+            request_role = None
+            request_identity = None
+            request_name = None
+            request_session = None
+            if has_request_context():
+                request_role = getattr(g, "user_role", None)
+                request_identity = getattr(g, "user_identity", None)
+                request_name = getattr(g, "user_name", None)
+                request_session = getattr(g, "session_id", None)
+
             ev = {
                 "ts": datetime.utcfromtimestamp(record.created),
                 "event_type": event_type,
                 "request_id": getattr(record, "request_id", None),
-                "user_role": getattr(record, "user_role", None),
+                "user_role": getattr(record, "user_role", None) or request_role,
                 "endpoint": getattr(record, "endpoint", None),
                 "message": record.getMessage(),
             }
@@ -317,7 +328,14 @@ class AuditHandler(logging.Handler):
                 ev["forbidden_intents"] = list(forbidden)
 
             # Attach raw metadata if present
-            ev["metadata"] = getattr(record, "metadata", None) or {}
+            metadata = getattr(record, "metadata", None) or {}
+            if request_identity and "user_identity" not in metadata:
+                metadata["user_identity"] = request_identity
+            if request_name and "user_name" not in metadata:
+                metadata["user_name"] = request_name
+            if request_session and "session_id" not in metadata:
+                metadata["session_id"] = request_session
+            ev["metadata"] = metadata
 
             mgr.record_event(ev)
         except Exception:

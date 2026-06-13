@@ -13,6 +13,7 @@
   const reportLevel = document.getElementById("report-level");
   const reportTokens = document.getElementById("report-tokens");
   const reportReasons = document.getElementById("report-reasons");
+  const reportProof = document.getElementById("report-proof");
   const clearButton = document.getElementById("clear-chat");
   const copyButton = document.getElementById("copy-last");
   const historyList = document.getElementById("history-list");
@@ -150,12 +151,18 @@
     const risk = payload?.risk_assessment || {};
     const reasons = Array.isArray(risk.reasons) ? risk.reasons : [];
     const tokenCounts = payload?.tokenization?.token_counts || {};
+    const dispatchProof = payload?.dispatch_proof || {};
     const totalTokens = Object.values(tokenCounts).reduce((sum, value) => sum + (Number(value) || 0), 0);
     reportPolicy.textContent = String(risk.policy_action || payload.status || "n/a");
     reportScore.textContent = String(risk.risk_score ?? "n/a");
     reportLevel.textContent = String(risk.risk_level || "n/a");
     reportTokens.textContent = String(totalTokens);
     reportReasons.textContent = reasons.length ? `Signals: ${reasons.join(", ")}` : "Signals: none";
+    if (reportProof) {
+      const tokenized = dispatchProof.model_input_is_tokenized ? "yes" : "unknown";
+      const preview = dispatchProof.tokenized_prompt_preview || "n/a";
+      reportProof.textContent = `LLM input tokenized: ${tokenized}. Preview sent to model: ${preview}`;
+    }
     reportNode.hidden = false;
   }
 

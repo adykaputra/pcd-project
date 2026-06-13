@@ -17,10 +17,10 @@
                 </div>
             </div>
             <nav class="menu-nav">
-                <button class="menu-item active" data-view="dashboard">Dashboard</button>
-                <button class="menu-item" data-view="generate">Generate Lab</button>
-                <button class="menu-item" data-view="governance">Governance</button>
-                <button class="menu-item" data-view="audit">Audit Log</button>
+                <button class="menu-item active" data-view="dashboard">Overview</button>
+                <button class="menu-item" data-view="generate">Prompt Test</button>
+                <button class="menu-item" data-view="governance">Quality Checks</button>
+                <button class="menu-item" data-view="audit">Evidence Log</button>
                 <button class="menu-item" data-view="settings">Settings</button>
             </nav>
             <div class="status-box">
@@ -40,8 +40,8 @@
         <main class="content">
             <header class="hero view-section" data-view="dashboard">
                 <div>
-                    <h2>Privacy Operations Command Center</h2>
-                    <p>Tokenize before LLM, evaluate risk, enforce policy, and monitor governance in one modern interface.</p>
+                    <h2>Privacy Evidence Dashboard</h2>
+                    <p>Simple proof that user messages are sanitized before LLM, policy checks are applied, and sessions are auditable.</p>
                 </div>
                 <div class="hero-metrics">
                     <div class="metric-card">
@@ -101,6 +101,7 @@
                         </div>
                         <button type="submit">Run Generate</button>
                     </form>
+                    <p class="muted">Use this as assessor proof: the response shows whether tokenization was applied before model dispatch.</p>
                 </article>
 
                 <article id="panel-detokenize" class="panel view-section" data-view="generate">
@@ -113,7 +114,7 @@
                 </article>
 
                 <article id="panel-governance" class="panel view-section" data-view="dashboard,governance">
-                    <h3>Governance Actions</h3>
+                    <h3>Quality & Policy Checks</h3>
                     <div class="field-row">
                         <div>
                             <label>Dataset Version</label>
@@ -134,19 +135,77 @@
                         </div>
                     </div>
                     <div class="action-row">
-                        <button id="btn-benchmark" type="button">Run Benchmark</button>
-                        <button id="btn-cross-split" type="button">Cross-Split</button>
-                        <button id="btn-calibrate" type="button">Calibrate</button>
-                        <button id="btn-autotune" type="button">Autotune</button>
-                        <button id="btn-history" type="button">Refresh History</button>
-                        <button id="btn-summary" type="button">Audit Summary</button>
+                        <button id="btn-benchmark" type="button">Run Privacy Check</button>
+                        <button id="btn-cross-split" type="button">Advanced Test</button>
+                        <button id="btn-calibrate" type="button">Tune Thresholds</button>
+                        <button id="btn-autotune" type="button">Auto Tune</button>
+                        <button id="btn-history" type="button">Refresh Trend</button>
+                        <button id="btn-summary" type="button">Show Audit Summary</button>
                     </div>
                 </article>
             </section>
 
+            <section class="panel wide view-section" data-view="dashboard,audit">
+                <h3>Who Used the System (Session Proof)</h3>
+                {% if recent_sessions %}
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>User Identity</th>
+                                <th>Session ID</th>
+                                <th>Latest Event</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in recent_sessions %}
+                            <tr>
+                                <td>{{ row.ts }}</td>
+                                <td>{{ row.user_identity }}</td>
+                                <td>{{ row.session_id }}</td>
+                                <td>{{ row.event_type }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="muted">No authenticated user sessions recorded yet. Start a client chat first.</p>
+                {% endif %}
+            </section>
+
+            <section class="panel wide view-section" data-view="dashboard,audit">
+                <h3>LLM Redaction Proof (What Model Received)</h3>
+                {% if latest_dispatch_proof and latest_dispatch_proof.proof %}
+                <div class="proof-grid">
+                    <div class="proof-card">
+                        <span>User</span>
+                        <strong>{{ latest_dispatch_proof.user_identity or "unknown" }}</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Session</span>
+                        <strong>{{ latest_dispatch_proof.session_id or "unknown" }}</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Model Input Tokenized</span>
+                        <strong>{{ "Yes" if latest_dispatch_proof.proof.model_input_is_tokenized else "No" }}</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Redaction Applied</span>
+                        <strong>{{ "Yes" if latest_dispatch_proof.proof.redaction_applied else "No" }}</strong>
+                    </div>
+                </div>
+                <p class="muted"><strong>Tokenized payload preview:</strong> {{ latest_dispatch_proof.proof.tokenized_prompt_preview }}</p>
+                <p class="muted"><strong>Original prompt hash:</strong> {{ latest_dispatch_proof.proof.original_prompt_sha256 }}</p>
+                {% else %}
+                <p class="muted">No dispatch proof found yet. Send a client prompt first, then refresh dashboard.</p>
+                {% endif %}
+            </section>
+
             <section id="panel-chart" class="panel wide view-section" data-view="dashboard,governance">
                 <h3>Chart Center</h3>
-                <p class="muted">Live product telemetry for privacy quality, policy actions, and benchmark trends.</p>
+                <p class="muted">High-level quality indicators for assessor viewing (leak, detection, policy distribution, trend).</p>
                 <div class="chart-grid">
                     <div class="chart-card">
                         <h4>Privacy Quality Snapshot</h4>
@@ -161,7 +220,10 @@
                         <svg id="trend-chart" viewBox="0 0 760 210" role="img" aria-label="Benchmark trend chart"></svg>
                     </div>
                 </div>
-                <pre id="response-viewer">{{ {"benchmark": benchmark, "calibration": calibration, "autotune": autotune} | tojson(indent=2) }}</pre>
+                <div id="result-brief" class="result-brief">
+                    <h4>Latest Action Result</h4>
+                    <p id="result-summary">No admin action yet.</p>
+                </div>
             </section>
 
             <section id="panel-audit" class="panel wide view-section" data-view="audit">
@@ -174,8 +236,9 @@
                                 <th>Timestamp</th>
                                 <th>Event</th>
                                 <th>Role</th>
+                                <th>User</th>
+                                <th>Session</th>
                                 <th>Counts</th>
-                                <th>Winner</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -185,40 +248,9 @@
                                 <td>{{ row.ts }}</td>
                                 <td>{{ row.event_type }}</td>
                                 <td>{{ row.user_role }}</td>
+                                <td>{{ row.user_identity or "n/a" }}</td>
+                                <td>{{ row.session_id or "n/a" }}</td>
                                 <td>{{ row.count_id }}/{{ row.count_phone }}/{{ row.count_email }}</td>
-                                <td>{{ row.winning_tool or "n/a" }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section class="panel wide view-section" data-view="audit,governance">
-                <h3>Benchmark Trend History</h3>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Timestamp</th>
-                                <th>Dataset</th>
-                                <th>Split</th>
-                                <th>Leak</th>
-                                <th>Utility</th>
-                                <th>Latency</th>
-                                <th>A/C/B</th>
-                            </tr>
-                        </thead>
-                        <tbody id="history-body">
-                            {% for run in benchmark_history %}
-                            <tr>
-                                <td>{{ run.ts }}</td>
-                                <td>{{ run.dataset_version }}</td>
-                                <td>{{ run.dataset_split }}</td>
-                                <td>{{ run.leak_rate }}</td>
-                                <td>{{ run.utility_score }}</td>
-                                <td>{{ run.latency_ms }}</td>
-                                <td>{{ run.allow_count }}/{{ run.challenge_count }}/{{ run.block_count }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
