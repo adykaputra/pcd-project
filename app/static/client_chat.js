@@ -22,13 +22,30 @@
   let lastAssistantText = "";
   let turns = 0;
 
+  function autoResizeInput() {
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+  }
+
   function addMessage(role, text, meta = "") {
+    if (!messages) return;
     const node = document.createElement("div");
     node.className = `message ${role}`;
+
     const stamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    node.innerHTML = `<div class="meta">${meta || role} · ${stamp}</div><p>${text}</p>`;
+
+    const metaNode = document.createElement("div");
+    metaNode.className = "meta";
+    metaNode.textContent = `${meta || role} · ${stamp}`;
+
+    const textNode = document.createElement("p");
+    textNode.textContent = String(text || "");
+
+    node.appendChild(metaNode);
+    node.appendChild(textNode);
     messages.appendChild(node);
-    messages.scrollTop = messages.scrollHeight;
+    messages.scrollTo({ top: messages.scrollHeight, behavior: "smooth" });
   }
 
   function setIndicator(status) {
@@ -64,7 +81,11 @@
   function clearChat() {
     if (!messages) return;
     messages.innerHTML = "";
-    addMessage("system", "Conversation cleared. Continue safely.", "system");
+    addMessage(
+      "system",
+      "Conversation cleared. Continue safely. I will still tokenize sensitive details before model dispatch.",
+      "system"
+    );
     turns = 0;
     updateTurns();
     setIndicator("neutral");
@@ -77,8 +98,17 @@
     btn.addEventListener("click", () => {
       const text = btn.dataset.prompt || "";
       if (input) input.value = text;
+      autoResizeInput();
       input?.focus();
     });
+  });
+
+  input?.addEventListener("input", autoResizeInput);
+  input?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
   });
 
   clearButton?.addEventListener("click", clearChat);
@@ -99,6 +129,7 @@
 
     addMessage("user", prompt, "you");
     input.value = "";
+    autoResizeInput();
     setTyping(true);
     const submitButton = form.querySelector("button[type='submit']");
     if (submitButton) {
@@ -173,5 +204,6 @@
     }
   });
 
+  autoResizeInput();
   updateTurns();
 })();

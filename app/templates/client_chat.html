@@ -9,22 +9,31 @@
 <body>
     <div class="chat-shell">
         <aside class="sidebar">
-            <h1>Client Assistant</h1>
-            <p>Welcome, <strong>{{ display_name }}</strong></p>
-            <ul>
-                <li>PII is tokenized before model dispatch.</li>
-                <li>High-risk prompts are challenged or blocked.</li>
-                <li>Ask freely without exposing private identifiers.</li>
-            </ul>
-            <div class="sidebar-badges">
-                <span class="pill">Firewall Active</span>
-                <span class="pill">Vault Tokenization</span>
+            <div class="sidebar-header">
+                <h1>Privacy Chat</h1>
+                <p>Welcome, <strong>{{ display_name }}</strong></p>
             </div>
-            <a href="/">Back to Sign In</a>
+            <button type="button" id="clear-chat" class="new-chat">+ New chat</button>
+            <div class="sidebar-section">
+                <h3>Safety status</h3>
+                <div class="sidebar-badges">
+                    <span class="pill">Firewall Active</span>
+                    <span class="pill">Vault Tokenization</span>
+                </div>
+            </div>
+            <div class="sidebar-section muted-copy">
+                <h3>How this assistant works</h3>
+                <ul>
+                    <li>PII is tokenized before model dispatch.</li>
+                    <li>High-risk prompts are challenged or blocked.</li>
+                    <li>You get policy insight after each response.</li>
+                </ul>
+            </div>
+            <a href="/" class="signout-link">Back to Sign In</a>
         </aside>
 
         <main class="chat-main">
-            <header>
+            <header class="chat-topbar">
                 <h2>Privacy-Protected Chat</h2>
                 <div class="header-meta">
                     <span id="turn-counter" class="badge neutral">0 turns</span>
@@ -39,12 +48,6 @@
                 </div>
             </section>
 
-            <section class="quick-prompts">
-                <button class="quick-btn" data-prompt="Summarize zero trust in beginner-friendly language.">Zero Trust Summary</button>
-                <button class="quick-btn" data-prompt="Help me draft a complaint email without including personal data.">Complaint Draft</button>
-                <button class="quick-btn" data-prompt="What data should never be shared with AI tools?">Safe Data Guide</button>
-            </section>
-
             <section id="privacy-report" class="privacy-report" hidden>
                 <h3>Privacy Insight</h3>
                 <div class="report-grid">
@@ -57,7 +60,12 @@
             </section>
 
             <form id="chat-form" class="composer">
-                <textarea id="chat-input" rows="3" placeholder="Type your request here..."></textarea>
+                <section class="quick-prompts">
+                    <button class="quick-btn" type="button" data-prompt="Summarize zero trust in beginner-friendly language.">Zero Trust Summary</button>
+                    <button class="quick-btn" type="button" data-prompt="Help me draft a complaint email without including personal data.">Complaint Draft</button>
+                    <button class="quick-btn" type="button" data-prompt="What data should never be shared with AI tools?">Safe Data Guide</button>
+                </section>
+                <textarea id="chat-input" rows="1" placeholder="Message Privacy Firewall..."></textarea>
                 <div class="composer-row">
                     <label>
                         Provider
@@ -72,7 +80,6 @@
                         <input id="model" value="{{ default_model or '' }}" placeholder="optional-model" />
                     </label>
                     <div class="composer-actions">
-                        <button type="button" id="clear-chat" class="btn-secondary">Clear</button>
                         <button type="button" id="copy-last" class="btn-secondary">Copy Last</button>
                         <button type="submit">Send</button>
                     </div>
