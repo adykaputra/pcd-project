@@ -51,7 +51,7 @@
       button.classList.toggle("active", button.dataset.view === nextView);
     });
     viewSections.forEach((section) => {
-      const views = String(section.dataset.view || "dashboard")
+      const views = String(section.dataset.view || "prompt")
         .split(",")
         .map((item) => item.trim());
       section.hidden = !(views.includes(nextView) || views.includes("all"));
@@ -334,7 +334,7 @@
   });
 
   viewButtons.forEach((button) => {
-    button.addEventListener("click", () => setActiveView(button.dataset.view || "dashboard"));
+    button.addEventListener("click", () => setActiveView(button.dataset.view || "prompt"));
   });
 
   logoutButton?.addEventListener("click", async (event) => {
@@ -347,7 +347,7 @@
     window.location.replace("/");
   });
 
-  setActiveView("dashboard");
+  setActiveView("prompt");
   renderChartCenter(bootstrap.benchmark || {});
   if (window.location.search.includes("token=")) {
     window.history.replaceState({}, document.title, window.location.pathname);

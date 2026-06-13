@@ -17,10 +17,9 @@
                 </div>
             </div>
             <nav class="menu-nav">
-                <button class="menu-item active" data-view="dashboard">Overview</button>
-                <button class="menu-item" data-view="generate">Prompt Test</button>
-                <button class="menu-item" data-view="governance">Quality Checks</button>
-                <button class="menu-item" data-view="audit">Evidence Log</button>
+                <button class="menu-item active" data-view="prompt">Prompt Test</button>
+                <button class="menu-item" data-view="proof">Redaction Proof</button>
+                <button class="menu-item" data-view="evidence">Evidence Log</button>
             </nav>
             <div class="status-box">
                 <div class="status-pill online">Gateway Online</div>
@@ -37,10 +36,10 @@
         </aside>
 
         <main class="content">
-            <header class="hero view-section" data-view="dashboard">
+            <header class="hero view-section" data-view="prompt">
                 <div>
-                    <h2>Privacy Evidence Dashboard</h2>
-                    <p>Simple proof that user messages are sanitized before LLM, policy checks are applied, and sessions are auditable.</p>
+                    <h2>Assessor Demo - Prompt Test</h2>
+                    <p>Step 1: run a prompt with PII. Step 2: open Redaction Proof tab to show tokenized model input. Step 3: open Evidence Log tab for session trace.</p>
                 </div>
                 <div class="hero-metrics">
                     <div class="metric-card">
@@ -59,7 +58,7 @@
             </header>
 
             <section class="panel-grid">
-                <article id="panel-auth" class="panel view-section" data-view="dashboard">
+                <article id="panel-auth" class="panel view-section" data-view="prompt">
                     <h3>Admin Authentication</h3>
                     <form id="login-form">
                         <label>Password</label>
@@ -69,7 +68,7 @@
                     <p class="muted">Token is reused for admin-only API calls from this interface.</p>
                 </article>
 
-                <article id="panel-generate" class="panel view-section" data-view="dashboard,generate">
+                <article id="panel-generate" class="panel view-section" data-view="prompt">
                     <h3>Generate via Privacy Firewall</h3>
                     <form id="generate-form">
                         <label>Prompt</label>
@@ -103,8 +102,8 @@
                     <p class="muted">Use this as assessor proof: the response shows whether tokenization was applied before model dispatch.</p>
                 </article>
 
-                <article id="panel-governance" class="panel view-section" data-view="dashboard,governance">
-                    <h3>Quality & Policy Checks</h3>
+                <article id="panel-governance" class="panel view-section" data-view="proof">
+                    <h3>Verification Actions</h3>
                     <div>
                         <label>Dataset Version</label>
                         <select id="benchmark-dataset">
@@ -117,10 +116,11 @@
                         <button id="btn-benchmark" type="button">Run Privacy Check</button>
                         <button id="btn-summary" type="button">Show Audit Summary</button>
                     </div>
+                    <p class="muted">These two buttons produce measurable evidence (leak/detection and block/challenge totals).</p>
                 </article>
             </section>
 
-            <section class="panel wide view-section" data-view="dashboard">
+            <section class="panel wide view-section" data-view="proof">
                 <h3>What each action shows</h3>
                 <div class="proof-grid">
                     <div class="proof-card">
@@ -142,7 +142,7 @@
                 </div>
             </section>
 
-            <section class="panel wide view-section" data-view="dashboard,audit">
+            <section class="panel wide view-section" data-view="proof">
                 <h3>Who Used the System (Session Proof)</h3>
                 {% if recent_sessions %}
                 <div class="table-wrap">
@@ -172,7 +172,7 @@
                 {% endif %}
             </section>
 
-            <section class="panel wide view-section" data-view="dashboard,audit">
+            <section class="panel wide view-section" data-view="proof">
                 <h3>Sanitized User Session Threads (Admin-safe)</h3>
                 <p class="muted">Click any user session to view the fully redacted prompts that were sent to the model. Raw PII is never shown here.</p>
                 {% if sanitized_threads %}
@@ -199,7 +199,7 @@
                 {% endif %}
             </section>
 
-            <section class="panel wide view-section" data-view="dashboard,audit">
+            <section class="panel wide view-section" data-view="proof">
                 <h3>LLM Redaction Proof (What Model Received)</h3>
                 {% if latest_dispatch_proof and latest_dispatch_proof.proof %}
                 <div class="proof-grid">
@@ -227,7 +227,7 @@
                 {% endif %}
             </section>
 
-            <section id="panel-chart" class="panel wide view-section" data-view="dashboard,governance">
+            <section id="panel-chart" class="panel wide view-section" data-view="proof">
                 <h3>Chart Center</h3>
                 <p class="muted">High-level quality indicators for assessor viewing (leak, detection, policy distribution, trend).</p>
                 <div class="chart-grid">
@@ -250,7 +250,7 @@
                 </div>
             </section>
 
-            <section id="panel-audit" class="panel wide view-section" data-view="audit">
+            <section id="panel-audit" class="panel wide view-section" data-view="evidence">
                 <h3>Recent Security Audit Events</h3>
                 <div class="table-wrap">
                     <table>
