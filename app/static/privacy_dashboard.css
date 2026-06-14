@@ -384,6 +384,17 @@ button:hover {
   line-height: 1.45;
 }
 
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.result-brief .field-row {
+  margin-top: 0.55rem;
+}
+
 .leaderboard {
   display: grid;
   gap: 0.45rem;
@@ -632,6 +643,9 @@ td {
     grid-template-columns: repeat(2, minmax(140px, 1fr));
   }
   .leaderboard-row {
+    grid-template-columns: 1fr;
+  }
+  .ops-grid {
     grid-template-columns: 1fr;
   }
 }

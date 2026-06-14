@@ -8,6 +8,11 @@
   const pipelineTrace = document.getElementById("pipeline-trace");
   const pipelineDetail = document.getElementById("pipeline-detail");
   const methodLeaderboard = document.getElementById("method-leaderboard");
+  const adversarialSummary = document.getElementById("adversarial-summary");
+  const vaultSummary = document.getElementById("vault-summary");
+  const vivaSummary = document.getElementById("viva-summary");
+  const vaultRetentionInput = document.getElementById("vault-retention-hours");
+  const vaultPolicyInput = document.getElementById("vault-policy-hours");
   const qualityCards = document.getElementById("quality-cards");
   const policyBars = document.getElementById("policy-bars");
   const trendChart = document.getElementById("trend-chart");
@@ -314,6 +319,70 @@
       .join("");
   }
 
+  function renderAdversarialSummary(adversarial) {
+    if (!adversarialSummary) return;
+    if (!adversarial || !adversarial.summary) {
+      adversarialSummary.textContent = "Run Adversarial Stress to populate robustness metrics.";
+      return;
+    }
+    const s = adversarial.summary;
+    adversarialSummary.textContent =
+      `dataset=${adversarial.dataset_version}, split=${adversarial.split}, cases=${adversarial.total_cases}, variants=${adversarial.total_variants}, baseline_leak=${s.baseline_core_leak_rate}, attacked_leak=${s.attacked_core_leak_rate}, recall_degradation_events=${s.recall_degradation_events}`;
+  }
+
+  function renderVaultSummary(payload) {
+    if (!vaultSummary) return;
+    const vault = payload?.vault || {};
+    const retentionHours = payload?.retention_hours;
+    if (vaultPolicyInput && retentionHours !== undefined) {
+      vaultPolicyInput.value = String(retentionHours);
+    }
+    if (vault.entries === undefined) {
+      vaultSummary.textContent = "Vault stats not loaded yet.";
+      return;
+    }
+    const byType = Object.entries(vault.by_type || {})
+      .map(([k, v]) => `${k}:${v}`)
+      .join(", ");
+    vaultSummary.textContent = `entries=${vault.entries}, oldest=${vault.oldest_entry_ts || "n/a"}, newest=${vault.newest_entry_ts || "n/a"}, by_type=[${byType || "none"}]`;
+  }
+
+  function renderVivaSummary(payload) {
+    if (!vivaSummary) return;
+    const viva = payload?.viva;
+    if (!viva) {
+      vivaSummary.className = "leaderboard muted";
+      vivaSummary.textContent = "No viva artifact generated in this session.";
+      return;
+    }
+    const files = viva.artifacts || {};
+    const hashes = viva.hashes || {};
+    vivaSummary.className = "leaderboard";
+    vivaSummary.innerHTML = `
+      <div class="leaderboard-row">
+        <strong>Dataset ${viva.dataset_version || "n/a"}</strong>
+        <span>Leak ${viva.baseline_leak_rate ?? "n/a"}</span>
+        <span>Detection ${viva.baseline_detection_rate ?? "n/a"}</span>
+        <span>Top ${viva.top_method || "n/a"}</span>
+        <span>Git ${viva.git_commit || "n/a"}</span>
+      </div>
+      <div class="leaderboard-row">
+        <strong>Artifacts</strong>
+        <span>${files.json || "n/a"}</span>
+        <span>${files.markdown || "n/a"}</span>
+        <span>${files.leaderboard_csv || "n/a"}</span>
+        <span>${files.adversarial_csv || "n/a"}</span>
+      </div>
+      <div class="leaderboard-row">
+        <strong>SHA256</strong>
+        <span>${hashes.json || "n/a"}</span>
+        <span>${hashes.markdown || "n/a"}</span>
+        <span>${hashes.leaderboard_csv || "n/a"}</span>
+        <span>${hashes.adversarial_csv || "n/a"}</span>
+      </div>
+    `;
+  }
+
   async function refreshHistory() {
     try {
       const payload = await callApi("/privacy/benchmark/history?limit=20", { auth: true });
@@ -429,6 +498,69 @@
     }
   });
 
+  document.getElementById("btn-adversarial")?.addEventListener("click", async () => {
+    try {
+      const version = datasetSelect?.value || "v3";
+      const response = await callApi(
+        `/privacy/adversarial?dataset_version=${encodeURIComponent(version)}&split=test&max_cases=20&max_variants=3&include_cases=0`,
+        { auth: true }
+      );
+      setViewer("Adversarial Stress", response);
+      renderAdversarialSummary(response.adversarial);
+      showToast("Adversarial stress completed.", "success");
+    } catch (err) {
+      setViewer("Adversarial Stress Error", { status: "error", message: String(err) });
+      showToast("Adversarial stress failed.", "error");
+    }
+  });
+
+  document.getElementById("btn-vault-stats")?.addEventListener("click", async () => {
+    try {
+      const response = await callApi("/privacy/vault/stats", { auth: true });
+      setViewer("Vault Stats", response);
+      renderVaultSummary(response);
+      showToast("Vault stats refreshed.", "success");
+    } catch (err) {
+      setViewer("Vault Stats Error", { status: "error", message: String(err) });
+      showToast("Vault stats failed.", "error");
+    }
+  });
+
+  document.getElementById("btn-vault-purge")?.addEventListener("click", async () => {
+    try {
+      const retentionHours = Number(vaultRetentionInput?.value || 168);
+      const response = await callApi("/privacy/vault/purge", {
+        method: "POST",
+        auth: true,
+        body: { retention_hours: retentionHours },
+      });
+      setViewer("Vault Purge", response);
+      const statsResponse = await callApi("/privacy/vault/stats", { auth: true });
+      renderVaultSummary(statsResponse);
+      showToast("Vault purge completed.", "success");
+    } catch (err) {
+      setViewer("Vault Purge Error", { status: "error", message: String(err) });
+      showToast("Vault purge failed.", "error");
+    }
+  });
+
+  document.getElementById("btn-viva-export")?.addEventListener("click", async () => {
+    try {
+      const version = datasetSelect?.value || "v3";
+      const response = await callApi("/privacy/viva/export", {
+        method: "POST",
+        auth: true,
+        body: { dataset_version: version },
+      });
+      setViewer("Viva Export", response);
+      renderVivaSummary(response);
+      showToast("Viva pack exported.", "success");
+    } catch (err) {
+      setViewer("Viva Export Error", { status: "error", message: String(err) });
+      showToast("Viva export failed.", "error");
+    }
+  });
+
   viewButtons.forEach((button) => {
     button.addEventListener("click", () => setActiveView(button.dataset.view || "prompt"));
   });
@@ -446,6 +578,7 @@
   setActiveView("prompt");
   renderChartCenter(bootstrap.benchmark || {});
   refreshDatasetVersions();
+  callApi("/privacy/vault/stats", { auth: true }).then(renderVaultSummary).catch(() => {});
   if (window.location.search.includes("token=")) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }

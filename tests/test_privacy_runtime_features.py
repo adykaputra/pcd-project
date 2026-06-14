@@ -47,3 +47,9 @@ def test_adversarial_and_vault_endpoints_admin(client):
     purge = client.post("/privacy/vault/purge", json={"retention_hours": 1}, headers=headers)
     assert purge.status_code == 200
     assert purge.get_json()["status"] == "ok"
+
+    viva = client.post("/privacy/viva/export", json={"dataset_version": "v3"}, headers=headers)
+    assert viva.status_code == 200
+    body = viva.get_json()
+    assert body["status"] == "ok"
+    assert "artifacts" in body["viva"]

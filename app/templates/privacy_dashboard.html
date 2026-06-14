@@ -140,6 +140,7 @@
                         <button id="btn-benchmark" type="button">Run Privacy Check</button>
                         <button id="btn-summary" type="button">Show Audit Summary</button>
                         <button id="btn-comparison" type="button">Run Method Comparison</button>
+                        <button id="btn-adversarial" type="button">Run Adversarial Stress</button>
                     </div>
                     <p class="muted">These controls produce measurable evidence: firewall quality, audit totals, and method-vs-method redaction performance.</p>
                 </article>
@@ -280,6 +281,41 @@
                 <div class="result-brief">
                     <h4>Comparative Method Leaderboard</h4>
                     <div id="method-leaderboard" class="leaderboard muted">Run Method Comparison to populate method ranking.</div>
+                </div>
+            </section>
+
+            <section class="panel wide view-section" data-view="proof">
+                <h3>Functionality Ops (Retention, Adversarial, Viva Export)</h3>
+                <div class="ops-grid">
+                    <div class="result-brief">
+                        <h4>Adversarial Stress Summary</h4>
+                        <p id="adversarial-summary">Run Adversarial Stress to populate robustness metrics.</p>
+                    </div>
+                    <div class="result-brief">
+                        <h4>Vault Retention Controls</h4>
+                        <div class="action-row">
+                            <button id="btn-vault-stats" type="button">Refresh Vault Stats</button>
+                            <button id="btn-vault-purge" type="button">Purge Vault</button>
+                        </div>
+                        <div class="field-row">
+                            <div>
+                                <label>Retention Hours</label>
+                                <input id="vault-retention-hours" type="number" value="168" min="1" />
+                            </div>
+                            <div>
+                                <label>Current Policy</label>
+                                <input id="vault-policy-hours" type="text" value="n/a" readonly />
+                            </div>
+                        </div>
+                        <p id="vault-summary" class="muted">Vault stats not loaded yet.</p>
+                    </div>
+                </div>
+                <div class="result-brief">
+                    <h4>One-Click Viva Artifact Export</h4>
+                    <div class="action-row">
+                        <button id="btn-viva-export" type="button">Export Viva Pack</button>
+                    </div>
+                    <div id="viva-summary" class="leaderboard muted">No viva artifact generated in this session.</div>
                 </div>
             </section>
 

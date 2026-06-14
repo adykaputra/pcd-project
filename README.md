@@ -100,6 +100,14 @@ curl -H 'Authorization: Bearer <token>' \
 python3 scripts/export_viva_pack.py
 ```
 
+Admin API (for dashboard one-click export):
+
+```bash
+curl -X POST -H 'Authorization: Bearer <token>' -H 'Content-Type: application/json' \
+  -d '{"dataset_version":"v3"}' \
+  'http://localhost:5100/privacy/viva/export'
+```
+
 Generated artifacts:
 - `reports/viva/viva_pack.json`
 - `reports/viva/viva_pack.md`

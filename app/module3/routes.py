@@ -16,6 +16,7 @@ from app.privacy_benchmark_dataset import list_dataset_versions
 from app.privacy_comparison import run_privacy_comparison, route_prompt_adaptive
 from app.privacy_adversarial import run_adversarial_stress
 from app.privacy_vault import get_vault, maybe_sweep_retention
+from app.privacy_viva import generate_viva_pack
 
 bp = Blueprint('module3', __name__)
 
@@ -576,6 +577,35 @@ def privacy_vault_stats():
     stats = get_vault().stats()
     retention_hours = int(os.getenv("PII_VAULT_RETENTION_HOURS", "0") or "0")
     return jsonify({"status": "ok", "retention_hours": retention_hours, "vault": stats}), 200
+
+
+@bp.route('/privacy/viva/export', methods=['POST'])
+def privacy_viva_export():
+    """Admin-only endpoint to generate viva evidence artifacts on demand."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    dataset_version = str(data.get("dataset_version", "v3")).strip() or "v3"
+    report_dir = str(data.get("report_dir", "reports/viva")).strip() or "reports/viva"
+
+    try:
+        viva = generate_viva_pack(dataset_version=dataset_version, report_dir=report_dir)
+    except FileNotFoundError:
+        return jsonify({"status": "denied", "message": f"Unknown benchmark dataset version: {dataset_version}"}), 400
+
+    from flask import g
+    current_app.logger.info(
+        "[PRIVACY_VIVA] Viva pack generated",
+        extra={
+            "event_type": "VIVA_PACK_EXPORTED",
+            "request_id": getattr(g, "request_id", None),
+            "user_role": getattr(g, "user_role", None),
+            "endpoint": request.path,
+            "metadata": {"dataset_version": dataset_version, "artifacts": viva.get("artifacts", {})},
+        },
+    )
+    return jsonify({"status": "ok", "viva": viva}), 200
 
 
 @bp.route('/privacy/calibrate', methods=['GET'])
