@@ -17,8 +17,8 @@
                 </div>
             </div>
             <nav class="menu-nav">
-                <button class="menu-item active" data-view="prompt">Prompt Test</button>
-                <button class="menu-item" data-view="proof">Redaction Proof</button>
+                <button class="menu-item" data-view="prompt">Live Prompt Test</button>
+                <button class="menu-item active" data-view="proof">Comparison Lab</button>
                 <button class="menu-item" data-view="evidence">Evidence Log</button>
             </nav>
             <div class="status-box">
@@ -36,10 +36,10 @@
         </aside>
 
         <main class="content">
-            <header class="hero view-section" data-view="prompt">
+            <header class="hero view-section" data-view="proof">
                 <div>
-                    <h2>Privacy Firewall Operations</h2>
-                    <p>Run live prompts through the firewall, verify tokenized model dispatch, and review user-safe evidence logs from one control center.</p>
+                    <h2>Redaction Comparison Command Center</h2>
+                    <p>Compare redaction methods, inspect robustness under adversarial prompts, and export viva-ready evidence from one admin workspace.</p>
                 </div>
                 <div class="hero-metrics">
                     <div class="metric-card">
@@ -126,8 +126,8 @@
                     <p id="pipeline-detail" class="muted">Run Generate to capture tokenized payload proof.</p>
                 </article>
 
-                <article id="panel-governance" class="panel view-section" data-view="proof">
-                    <h3>Verification Actions</h3>
+                <article id="panel-governance" class="panel view-section wide" data-view="proof">
+                    <h3>Redaction Comparison Workbench</h3>
                     <div>
                         <label>Dataset Version</label>
                         <select id="benchmark-dataset">
@@ -144,6 +144,52 @@
                     </div>
                     <p class="muted">These controls produce measurable evidence: firewall quality, audit totals, and method-vs-method redaction performance.</p>
                 </article>
+            </section>
+
+            <section class="panel wide view-section" data-view="proof">
+                <h3>Comparison Snapshot</h3>
+                <div class="snapshot-grid">
+                    <div class="proof-card">
+                        <span>Top Method</span>
+                        <strong id="metric-top-method">n/a</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Top Composite Score</span>
+                        <strong id="metric-top-score">n/a</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Top Micro F1</span>
+                        <strong id="metric-top-f1">n/a</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Adversarial Leak Rate</span>
+                        <strong id="metric-adversarial-leak">n/a</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel wide view-section" data-view="proof">
+                <h3>Method Comparison Table</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Method</th>
+                                <th>Composite</th>
+                                <th>Recall</th>
+                                <th>Leak Rate</th>
+                                <th>Micro F1</th>
+                                <th>Latency (ms)</th>
+                                <th>Wins</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparison-table-body">
+                            <tr>
+                                <td colspan="7" class="muted">Run Method Comparison to populate this table.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </section>
 
             <section class="panel wide view-section" data-view="proof">

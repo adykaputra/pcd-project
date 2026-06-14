@@ -8,6 +8,11 @@
   const pipelineTrace = document.getElementById("pipeline-trace");
   const pipelineDetail = document.getElementById("pipeline-detail");
   const methodLeaderboard = document.getElementById("method-leaderboard");
+  const comparisonTableBody = document.getElementById("comparison-table-body");
+  const metricTopMethod = document.getElementById("metric-top-method");
+  const metricTopScore = document.getElementById("metric-top-score");
+  const metricTopF1 = document.getElementById("metric-top-f1");
+  const metricAdversarialLeak = document.getElementById("metric-adversarial-leak");
   const adversarialSummary = document.getElementById("adversarial-summary");
   const vaultSummary = document.getElementById("vault-summary");
   const vivaSummary = document.getElementById("viva-summary");
@@ -299,8 +304,16 @@
     if (!Array.isArray(rows) || rows.length === 0) {
       methodLeaderboard.className = "leaderboard muted";
       methodLeaderboard.textContent = "Run Method Comparison to populate method ranking.";
+      if (comparisonTableBody) {
+        comparisonTableBody.innerHTML = `<tr><td colspan="7" class="muted">Run Method Comparison to populate this table.</td></tr>`;
+      }
       return;
     }
+
+    const top = rows[0];
+    if (metricTopMethod) metricTopMethod.textContent = String(top.method_name || "n/a");
+    if (metricTopScore) metricTopScore.textContent = String(top.composite_score ?? "n/a");
+    if (metricTopF1) metricTopF1.textContent = String(top.micro_f1 ?? "n/a");
 
     methodLeaderboard.className = "leaderboard";
     methodLeaderboard.innerHTML = rows
@@ -317,6 +330,25 @@
         `
       )
       .join("");
+
+    if (comparisonTableBody) {
+      comparisonTableBody.innerHTML = rows
+        .slice(0, 8)
+        .map(
+          (row) => `
+            <tr>
+              <td>${row.method_name}</td>
+              <td>${Number(row.composite_score ?? 0).toFixed(3)}</td>
+              <td>${Number(row.avg_target_recall ?? 0).toFixed(3)}</td>
+              <td>${Number(row.core_pii_leak_rate ?? 0).toFixed(3)}</td>
+              <td>${Number(row.micro_f1 ?? 0).toFixed(3)}</td>
+              <td>${Number(row.avg_latency_ms ?? 0).toFixed(2)}</td>
+              <td>${row.wins || 0}</td>
+            </tr>
+          `
+        )
+        .join("");
+    }
   }
 
   function renderAdversarialSummary(adversarial) {
@@ -326,6 +358,9 @@
       return;
     }
     const s = adversarial.summary;
+    if (metricAdversarialLeak) {
+      metricAdversarialLeak.textContent = String(s.attacked_core_leak_rate ?? "n/a");
+    }
     adversarialSummary.textContent =
       `dataset=${adversarial.dataset_version}, split=${adversarial.split}, cases=${adversarial.total_cases}, variants=${adversarial.total_variants}, baseline_leak=${s.baseline_core_leak_rate}, attacked_leak=${s.attacked_core_leak_rate}, recall_degradation_events=${s.recall_degradation_events}`;
   }
@@ -575,10 +610,14 @@
     window.location.replace("/");
   });
 
-  setActiveView("prompt");
+  setActiveView("proof");
   renderChartCenter(bootstrap.benchmark || {});
   refreshDatasetVersions();
   callApi("/privacy/vault/stats", { auth: true }).then(renderVaultSummary).catch(() => {});
+  callApi(
+    `/privacy/comparison?dataset_version=${encodeURIComponent(datasetSelect?.value || bootstrap.datasetVersion || "v3")}&split=all&include_cases=0`,
+    { auth: true }
+  ).then((response) => renderMethodLeaderboard(response.comparison)).catch(() => {});
   if (window.location.search.includes("token=")) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }

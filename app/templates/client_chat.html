@@ -18,6 +18,16 @@
                 <h3>Recent chats</h3>
                 <ul id="history-list" class="history-list"></ul>
             </section>
+            <section class="sidebar-section">
+                <h3>Workspace</h3>
+                <ul class="workspace-nav">
+                    <li class="active">Current Chat</li>
+                    <li>Guidelines</li>
+                    <li>Assessment</li>
+                    <li>AI Scanner</li>
+                    <li>Notice Draft</li>
+                </ul>
+            </section>
             <div class="sidebar-section">
                 <h3>Safety status</h3>
                 <div class="sidebar-badges">
@@ -44,6 +54,25 @@
                     <span id="policy-indicator" class="badge neutral">ready</span>
                 </div>
             </header>
+
+            <section id="chat-welcome" class="chat-welcome">
+                <h3>Hi {{ display_name }}, start a privacy-safe session</h3>
+                <p>Choose a task to begin. Your prompt goes through redaction and policy checks before any model response.</p>
+                <div class="welcome-cards">
+                    <button class="welcome-card quick-btn" type="button" data-prompt="Show me safe prompt-writing guidelines for customer support logs.">
+                        <strong>Guidelines</strong>
+                        <span>Learn safe prompt practices</span>
+                    </button>
+                    <button class="welcome-card quick-btn" type="button" data-prompt="Analyze this text for potential PII exposure before sending to AI.">
+                        <strong>PII Scanner</strong>
+                        <span>Check exposure risk first</span>
+                    </button>
+                    <button class="welcome-card quick-btn" type="button" data-prompt="Assess the risk level of sharing this message with an LLM.">
+                        <strong>Risk Assessment</strong>
+                        <span>Get policy risk feedback</span>
+                    </button>
+                </div>
+            </section>
 
             <section id="messages" class="messages">
                 <div class="message system">

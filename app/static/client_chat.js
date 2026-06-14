@@ -18,6 +18,7 @@
   const copyButton = document.getElementById("copy-last");
   const logoutButton = document.getElementById("logout-btn");
   const historyList = document.getElementById("history-list");
+  const welcomePanel = document.getElementById("chat-welcome");
   const quickButtons = Array.from(document.querySelectorAll(".quick-btn"));
   const bootstrap = window.__CLIENT_BOOTSTRAP__ || {};
   const displayName = String(bootstrap.displayName || "Client");
@@ -177,6 +178,9 @@
     sessions = [active, ...sessions.filter((session) => session.id !== active.id)].slice(0, MAX_HISTORY);
     safeSaveSessions();
     renderHistoryList();
+    if (role === "user" && welcomePanel) {
+      welcomePanel.hidden = true;
+    }
   }
 
   function renderActiveSession() {
@@ -189,6 +193,9 @@
     }
     turns = active.entries.filter((entry) => entry.role === "user").length;
     updateTurns();
+    if (welcomePanel) {
+      welcomePanel.hidden = turns > 0;
+    }
     const lastAssistant = [...active.entries].reverse().find((entry) => entry.role === "assistant");
     lastAssistantText = lastAssistant?.text || "";
     setIndicator("neutral");

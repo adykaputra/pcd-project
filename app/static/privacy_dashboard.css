@@ -342,6 +342,12 @@ button:hover {
   margin-top: 0.5rem;
 }
 
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 0.7rem;
+}
+
 .proof-card {
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -622,6 +628,11 @@ td {
   font-size: 0.86rem;
 }
 
+#comparison-table-body .muted {
+  text-align: center;
+  padding: 1rem 0.7rem;
+}
+
 @media (max-width: 1020px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -640,6 +651,9 @@ td {
     grid-template-columns: 1fr;
   }
   .proof-grid {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+  .snapshot-grid {
     grid-template-columns: repeat(2, minmax(140px, 1fr));
   }
   .leaderboard-row {

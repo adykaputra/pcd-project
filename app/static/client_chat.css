@@ -80,6 +80,30 @@ body {
   gap: 0.45rem;
 }
 
+.workspace-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.workspace-nav li {
+  border: 1px solid #c9d9ef;
+  border-radius: 9px;
+  background: #fff;
+  color: #244674;
+  padding: 0.45rem 0.52rem;
+  font-size: 0.82rem;
+}
+
+.workspace-nav li.active {
+  border-color: #97b8ee;
+  background: #eef5ff;
+  color: #173d76;
+  font-weight: 600;
+}
+
 .history {
   min-height: 110px;
 }
@@ -164,8 +188,56 @@ body {
 
 .chat-main {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   height: 100vh;
+}
+
+.chat-welcome {
+  margin: 1rem auto 0;
+  width: min(860px, calc(100% - 2.2rem));
+  border: 1px solid #d6e2f2;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 0.95rem 1rem;
+  box-shadow: 0 10px 24px rgba(33, 61, 106, 0.06);
+}
+
+.chat-welcome h3 {
+  margin: 0;
+  font-size: 1.18rem;
+}
+
+.chat-welcome p {
+  margin: 0.38rem 0 0.75rem;
+  color: var(--muted);
+}
+
+.welcome-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 0.55rem;
+}
+
+.welcome-card {
+  border: 1px solid #d6e2f2;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #274a7a;
+  text-align: left;
+  padding: 0.62rem 0.7rem;
+}
+
+.welcome-card strong {
+  display: block;
+  color: #183c6d;
+  font-size: 0.9rem;
+}
+
+.welcome-card span {
+  display: block;
+  margin-top: 0.25rem;
+  color: #607394;
+  font-size: 0.78rem;
 }
 
 .chat-topbar {
@@ -441,6 +513,10 @@ button:hover {
   .chat-main {
     height: auto;
     min-height: calc(100vh - 260px);
+  }
+
+  .welcome-cards {
+    grid-template-columns: 1fr;
   }
 
   .report-grid {
