@@ -19,7 +19,8 @@
   const logoutButton = document.getElementById("logout-btn");
   const historyList = document.getElementById("history-list");
   const welcomePanel = document.getElementById("chat-welcome");
-  const quickButtons = Array.from(document.querySelectorAll(".quick-btn"));
+  const quickButtons = Array.from(document.querySelectorAll(".quick-btn, .welcome-action"));
+  const workspaceButtons = Array.from(document.querySelectorAll(".workspace-btn"));
   const bootstrap = window.__CLIENT_BOOTSTRAP__ || {};
   const displayName = String(bootstrap.displayName || "Client");
   const userIdentity = String(bootstrap.userIdentity || displayName || "anonymous").toLowerCase();
@@ -120,6 +121,20 @@
     typingIndicator.hidden = !visible;
   }
 
+  function activateWorkspace(workspace) {
+    const current = String(workspace || "current");
+    workspaceButtons.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.workspace === current);
+    });
+  }
+
+  function setPromptDraft(text, focus = true) {
+    if (!input) return;
+    input.value = String(text || "");
+    autoResizeInput();
+    if (focus) input.focus();
+  }
+
   function createMessageNode(role, text, meta = "", ts = nowTs()) {
     if (!messages) return;
     const node = document.createElement("div");
@@ -199,6 +214,7 @@
     const lastAssistant = [...active.entries].reverse().find((entry) => entry.role === "assistant");
     lastAssistantText = lastAssistant?.text || "";
     setIndicator("neutral");
+    activateWorkspace("current");
     if (reportNode) reportNode.hidden = true;
   }
 
@@ -298,9 +314,28 @@
   quickButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
       const text = btn.dataset.prompt || "";
-      if (input) input.value = text;
-      autoResizeInput();
-      input?.focus();
+      setPromptDraft(text);
+    });
+  });
+
+  workspaceButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const workspace = btn.dataset.workspace || "current";
+      activateWorkspace(workspace);
+      const draft = btn.dataset.prompt || "";
+      if (workspace === "current") {
+        input?.focus();
+        return;
+      }
+      setPromptDraft(draft);
+      if (welcomePanel) {
+        welcomePanel.hidden = false;
+      }
+      appendMessage(
+        "system",
+        `Workspace loaded: ${btn.textContent?.trim() || workspace}. You can edit the draft and send when ready.`,
+        "workspace"
+      );
     });
   });
 

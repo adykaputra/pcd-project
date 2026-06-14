@@ -21,11 +21,11 @@
             <section class="sidebar-section">
                 <h3>Workspace</h3>
                 <ul class="workspace-nav">
-                    <li class="active">Current Chat</li>
-                    <li>Guidelines</li>
-                    <li>Assessment</li>
-                    <li>AI Scanner</li>
-                    <li>Notice Draft</li>
+                    <li><button type="button" class="workspace-btn active" data-workspace="current">Current Chat</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="guidelines" data-prompt="Share a short checklist for safe prompt writing in customer support workflows.">Guidelines</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="assessment" data-prompt="Assess the privacy risk level of this message before sharing with an LLM.">Assessment</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="scanner" data-prompt="Scan this message for possible PII entities and explain what should be redacted.">AI Scanner</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="notice" data-prompt="Draft a customer notice requesting non-sensitive information only.">Notice Draft</button></li>
                 </ul>
             </section>
             <div class="sidebar-section">
@@ -59,15 +59,15 @@
                 <h3>Hi {{ display_name }}, start a privacy-safe session</h3>
                 <p>Choose a task to begin. Your prompt goes through redaction and policy checks before any model response.</p>
                 <div class="welcome-cards">
-                    <button class="welcome-card quick-btn" type="button" data-prompt="Show me safe prompt-writing guidelines for customer support logs.">
+                    <button class="welcome-card welcome-action" type="button" data-prompt="Show me safe prompt-writing guidelines for customer support logs.">
                         <strong>Guidelines</strong>
                         <span>Learn safe prompt practices</span>
                     </button>
-                    <button class="welcome-card quick-btn" type="button" data-prompt="Analyze this text for potential PII exposure before sending to AI.">
+                    <button class="welcome-card welcome-action" type="button" data-prompt="Analyze this text for potential PII exposure before sending to AI.">
                         <strong>PII Scanner</strong>
                         <span>Check exposure risk first</span>
                     </button>
-                    <button class="welcome-card quick-btn" type="button" data-prompt="Assess the risk level of sharing this message with an LLM.">
+                    <button class="welcome-card welcome-action" type="button" data-prompt="Assess the risk level of sharing this message with an LLM.">
                         <strong>Risk Assessment</strong>
                         <span>Get policy risk feedback</span>
                     </button>

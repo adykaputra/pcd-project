@@ -38,6 +38,7 @@ body {
   display: grid;
   grid-template-rows: auto auto auto auto 1fr auto;
   gap: 0.9rem;
+  min-height: 100vh;
 }
 
 .sidebar-header h1 {
@@ -89,15 +90,27 @@ body {
 }
 
 .workspace-nav li {
+  margin: 0;
+}
+
+.workspace-btn {
+  width: 100%;
   border: 1px solid #c9d9ef;
   border-radius: 9px;
   background: #fff;
   color: #244674;
   padding: 0.45rem 0.52rem;
   font-size: 0.82rem;
+  text-align: left;
+  font-weight: 500;
 }
 
-.workspace-nav li.active {
+.workspace-btn:hover {
+  border-color: #9ebdec;
+  background: #f5f9ff;
+}
+
+.workspace-btn.active {
   border-color: #97b8ee;
   background: #eef5ff;
   color: #173d76;
@@ -190,11 +203,12 @@ body {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   height: 100vh;
+  min-width: 0;
 }
 
 .chat-welcome {
   margin: 1rem auto 0;
-  width: min(860px, calc(100% - 2.2rem));
+  width: min(980px, calc(100% - 2.2rem));
   border: 1px solid #d6e2f2;
   border-radius: 14px;
   background: #ffffff;
@@ -225,6 +239,15 @@ body {
   color: #274a7a;
   text-align: left;
   padding: 0.62rem 0.7rem;
+}
+
+.welcome-action {
+  cursor: pointer;
+}
+
+.welcome-action:hover {
+  border-color: #a8c4ee;
+  background: #f2f8ff;
 }
 
 .welcome-card strong {
@@ -300,7 +323,7 @@ body {
 }
 
 .message {
-  width: min(860px, 100%);
+  width: min(980px, 100%);
   margin: 0 auto;
   border-radius: 16px;
   border: 1px solid #dbe5f3;
@@ -339,7 +362,7 @@ body {
 
 .privacy-report {
   margin: 0 auto;
-  width: min(860px, calc(100% - 2.2rem));
+  width: min(980px, calc(100% - 2.2rem));
   border: 1px solid #d6e2f2;
   background: #fff;
   border-radius: 13px;
@@ -386,7 +409,7 @@ body {
 
 .composer {
   margin: 0 auto 1rem;
-  width: min(860px, calc(100% - 2.2rem));
+  width: min(980px, calc(100% - 2.2rem));
   border: 1px solid #d4dff0;
   border-radius: 16px;
   background: var(--surface);
@@ -410,6 +433,7 @@ body {
   color: #2d4f82;
   font-size: 0.76rem;
   cursor: pointer;
+  font-weight: 500;
 }
 
 .quick-btn:hover {
@@ -504,6 +528,7 @@ button:hover {
     grid-template-rows: auto auto auto auto;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+    min-height: 0;
   }
 
   .signout-link {
