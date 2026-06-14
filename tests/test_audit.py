@@ -52,5 +52,5 @@ def test_dashboard_serves_html_and_accepts_token(client):
     token = _get_admin_token(client)
     r = client.get(f'/audit/dashboard?token={token}')
     assert r.status_code == 200
-    assert 'Chart' in r.get_data(as_text=True)
+    assert 'Operational Analytics' in r.get_data(as_text=True)
 
