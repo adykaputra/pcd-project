@@ -20,7 +20,7 @@
   const historyList = document.getElementById("history-list");
   const welcomePanel = document.getElementById("chat-welcome");
   const suggestionsBar = document.getElementById("suggestions-bar");
-  const quickButtons = Array.from(document.querySelectorAll(".suggestion-btn, .welcome-action"));
+  const workspaceStatus = document.getElementById("workspace-status");
   const workspaceButtons = Array.from(document.querySelectorAll(".workspace-btn"));
   const chatTitle = document.querySelector(".chat-topbar h2");
   const bootstrap = window.__CLIENT_BOOTSTRAP__ || {};
@@ -34,6 +34,55 @@
   let turns = 0;
   let sessions = [];
   let activeSessionId = "";
+  let activeWorkspace = "current";
+
+  const WORKSPACE_CONFIG = {
+    current: {
+      label: "Current Chat",
+      prompt: "",
+      suggestions: [
+        "Summarize zero trust in beginner-friendly language.",
+        "Help me draft a complaint email without including personal data.",
+        "What data should never be shared with AI tools?",
+      ],
+    },
+    guidelines: {
+      label: "Guidelines",
+      prompt: "Give me a practical checklist for privacy-safe prompt writing in customer support workflows.",
+      suggestions: [
+        "List 8 prompt-writing rules for avoiding personal identifiers.",
+        "Show bad vs good examples of privacy-safe prompts.",
+        "Create a one-minute privacy checklist for non-technical staff.",
+      ],
+    },
+    assessment: {
+      label: "Assessment",
+      prompt: "Assess the privacy risk of this message and explain why.",
+      suggestions: [
+        "Evaluate this prompt using low/medium/high privacy risk levels.",
+        "What signals cause a prompt to be challenged by policy?",
+        "How can I rewrite a medium-risk prompt to pass policy?",
+      ],
+    },
+    scanner: {
+      label: "AI Scanner",
+      prompt: "Scan this text for potential PII entities and recommend redactions.",
+      suggestions: [
+        "Identify all possible PII categories in this message.",
+        "Return a redacted version with placeholders.",
+        "Explain which tokens should be masked before model dispatch.",
+      ],
+    },
+    notice: {
+      label: "Notice Draft",
+      prompt: "Draft a customer notice requesting only non-sensitive information.",
+      suggestions: [
+        "Draft a customer-friendly notice about not sharing personal identifiers.",
+        "Write a short policy statement for safe AI chat usage.",
+        "Create a consent message that excludes sensitive personal data.",
+      ],
+    },
+  };
 
   function autoResizeInput() {
     if (!input) return;
@@ -125,16 +174,21 @@
 
   function activateWorkspace(workspace) {
     const current = String(workspace || "current");
+    activeWorkspace = current in WORKSPACE_CONFIG ? current : "current";
     workspaceButtons.forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.workspace === current);
+      btn.classList.toggle("active", btn.dataset.workspace === activeWorkspace);
     });
     if (chatTitle) {
-      const active = workspaceButtons.find((btn) => btn.dataset.workspace === current);
-      if (active && current !== "current") {
+      const active = workspaceButtons.find((btn) => btn.dataset.workspace === activeWorkspace);
+      if (active && activeWorkspace !== "current") {
         chatTitle.textContent = `Privacy-Protected Chat · ${active.textContent?.trim() || "Workspace"}`;
       } else {
         chatTitle.textContent = "Privacy-Protected Chat";
       }
+    }
+    const label = WORKSPACE_CONFIG[activeWorkspace]?.label || "Current Chat";
+    if (workspaceStatus) {
+      workspaceStatus.textContent = `Workspace: ${label.toLowerCase()}`;
     }
   }
 
@@ -143,6 +197,37 @@
     input.value = String(text || "");
     autoResizeInput();
     if (focus) input.focus();
+  }
+
+  function renderSuggestionButtons(items) {
+    if (!suggestionsBar) return;
+    const values = Array.isArray(items) ? items : [];
+    suggestionsBar.innerHTML = values
+      .map(
+        (item) =>
+          `<button class="suggestion-btn" type="button" data-prompt="${String(item)
+            .replaceAll("&", "&amp;")
+            .replaceAll("\"", "&quot;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")}">${String(item)}</button>`
+      )
+      .join("");
+  }
+
+  function applyWorkspace(workspace, { includeDraft = true } = {}) {
+    const key = workspace in WORKSPACE_CONFIG ? workspace : "current";
+    const config = WORKSPACE_CONFIG[key];
+    activateWorkspace(key);
+    renderSuggestionButtons(config.suggestions || []);
+    if (includeDraft && config.prompt) {
+      setPromptDraft(config.prompt);
+    }
+    if (suggestionsBar) {
+      suggestionsBar.hidden = false;
+    }
+    if (key !== "current" && welcomePanel) {
+      welcomePanel.hidden = false;
+    }
   }
 
   function createMessageNode(role, text, meta = "", ts = nowTs()) {
@@ -206,9 +291,6 @@
     if (role === "user" && welcomePanel) {
       welcomePanel.hidden = true;
     }
-    if (role === "user" && suggestionsBar) {
-      suggestionsBar.hidden = true;
-    }
   }
 
   function renderActiveSession() {
@@ -224,13 +306,10 @@
     if (welcomePanel) {
       welcomePanel.hidden = turns > 0;
     }
-    if (suggestionsBar) {
-      suggestionsBar.hidden = turns === 0 ? false : true;
-    }
+    applyWorkspace("current", { includeDraft: false });
     const lastAssistant = [...active.entries].reverse().find((entry) => entry.role === "assistant");
     lastAssistantText = lastAssistant?.text || "";
     setIndicator("neutral");
-    activateWorkspace("current");
     if (reportNode) reportNode.hidden = true;
   }
 
@@ -327,36 +406,29 @@
   }
   ensureSessionState();
 
-  quickButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const text = btn.dataset.prompt || "";
-      setPromptDraft(text);
-    });
+  suggestionsBar?.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target.closest(".suggestion-btn") : null;
+    if (!target) return;
+    const text = target.getAttribute("data-prompt") || "";
+    setPromptDraft(text);
+  });
+
+  welcomePanel?.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target.closest(".welcome-action") : null;
+    if (!target) return;
+    const text = target.getAttribute("data-prompt") || "";
+    setPromptDraft(text);
   });
 
   workspaceButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
       const workspace = btn.dataset.workspace || "current";
-      activateWorkspace(workspace);
-      const draft = btn.dataset.prompt || "";
       if (workspace === "current") {
+        applyWorkspace("current", { includeDraft: false });
         input?.focus();
         return;
       }
-      setPromptDraft(draft);
-      if (welcomePanel) {
-        welcomePanel.hidden = false;
-      }
-      if (suggestionsBar) {
-        suggestionsBar.hidden = false;
-      }
-      const label = btn.textContent?.trim() || workspace;
-      appendMessage(
-        "system",
-        `Workspace loaded: ${label}. Draft prompt inserted below.`,
-        "workspace"
-      );
-      appendEntry("system", `Workspace loaded: ${label}. Draft prompt inserted below.`, "workspace");
+      applyWorkspace(workspace, { includeDraft: true });
     });
   });
 
@@ -474,12 +546,12 @@
       if (err && err.name === "AbortError") {
         appendMessage(
           "assistant",
-          "I did not get a response from the model in time. If you selected Ollama, make sure it is running and the model exists, or switch provider to 'mock' for instant demo replies.",
+          "I did not get a response from Ollama in time. Make sure Ollama is running and model llama3.2:3b is available.",
           "timeout"
         );
         appendEntry(
           "assistant",
-          "I did not get a response from the model in time. If you selected Ollama, make sure it is running and the model exists, or switch provider to 'mock' for instant demo replies.",
+          "I did not get a response from Ollama in time. Make sure Ollama is running and model llama3.2:3b is available.",
           "timeout"
         );
       } else {
