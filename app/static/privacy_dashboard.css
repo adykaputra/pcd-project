@@ -283,6 +283,10 @@ form {
   gap: 0.7rem;
 }
 
+.filter-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .action-row {
   display: flex;
   flex-wrap: wrap;
@@ -623,6 +627,15 @@ th {
   letter-spacing: 0.08em;
 }
 
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.sortable:hover {
+  color: #173d76;
+}
+
 td {
   color: #203b62;
   font-size: 0.86rem;
@@ -652,6 +665,9 @@ td {
   }
   .proof-grid {
     grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+  .filter-row {
+    grid-template-columns: 1fr;
   }
   .snapshot-grid {
     grid-template-columns: repeat(2, minmax(140px, 1fr));

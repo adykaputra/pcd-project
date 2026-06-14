@@ -128,19 +128,45 @@
 
                 <article id="panel-governance" class="panel view-section wide" data-view="proof">
                     <h3>Redaction Comparison Workbench</h3>
-                    <div>
-                        <label>Dataset Version</label>
-                        <select id="benchmark-dataset">
-                            {% for version in available_dataset_versions %}
-                            <option value="{{ version }}" {% if version == dataset_version %}selected{% endif %}>{{ version }}</option>
-                            {% endfor %}
-                        </select>
+                    <div class="field-row filter-row">
+                        <div>
+                            <label>Dataset Version</label>
+                            <select id="benchmark-dataset">
+                                {% for version in available_dataset_versions %}
+                                <option value="{{ version }}" {% if version == dataset_version %}selected{% endif %}>{{ version }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label>Scenario Filter</label>
+                            <select id="comparison-scenario">
+                                <option value="all" selected>all scenarios</option>
+                                <option value="clean">clean</option>
+                                <option value="explicit">explicit</option>
+                                <option value="obfuscation">obfuscation</option>
+                                <option value="multilingual-contextual">multilingual-contextual</option>
+                                <option value="mixed-language">mixed-language</option>
+                                <option value="organization">organization</option>
+                                <option value="adversarial-jailbreak">adversarial-jailbreak</option>
+                                <option value="intent-risk">intent-risk</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Language Filter</label>
+                            <select id="comparison-language">
+                                <option value="all" selected>all languages</option>
+                                <option value="en">en</option>
+                                <option value="ms">ms</option>
+                                <option value="ms-en">ms-en</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="action-row">
                         <button id="btn-benchmark" type="button">Run Privacy Check</button>
                         <button id="btn-summary" type="button">Show Audit Summary</button>
                         <button id="btn-comparison" type="button">Run Method Comparison</button>
                         <button id="btn-adversarial" type="button">Run Adversarial Stress</button>
+                        <button id="btn-runbook" type="button">Run Demo Runbook</button>
                     </div>
                     <p class="muted">These controls produce measurable evidence: firewall quality, audit totals, and method-vs-method redaction performance.</p>
                 </article>
@@ -174,13 +200,13 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Method</th>
-                                <th>Composite</th>
-                                <th>Recall</th>
-                                <th>Leak Rate</th>
-                                <th>Micro F1</th>
-                                <th>Latency (ms)</th>
-                                <th>Wins</th>
+                                <th class="sortable" data-sort="method_name">Method</th>
+                                <th class="sortable" data-sort="composite_score">Composite</th>
+                                <th class="sortable" data-sort="avg_target_recall">Recall</th>
+                                <th class="sortable" data-sort="core_pii_leak_rate">Leak Rate</th>
+                                <th class="sortable" data-sort="micro_f1">Micro F1</th>
+                                <th class="sortable" data-sort="avg_latency_ms">Latency (ms)</th>
+                                <th class="sortable" data-sort="wins">Wins</th>
                             </tr>
                         </thead>
                         <tbody id="comparison-table-body">
@@ -362,6 +388,10 @@
                         <button id="btn-viva-export" type="button">Export Viva Pack</button>
                     </div>
                     <div id="viva-summary" class="leaderboard muted">No viva artifact generated in this session.</div>
+                </div>
+                <div class="result-brief">
+                    <h4>Demo Runbook Status</h4>
+                    <p id="runbook-summary">Run Demo Runbook to execute benchmark, comparison, adversarial stress, and viva export in one flow.</p>
                 </div>
             </section>
 

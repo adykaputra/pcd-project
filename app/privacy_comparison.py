@@ -441,9 +441,25 @@ def run_privacy_comparison(
     split: str = "all",
     methods: Optional[List[str]] = None,
     include_cases: bool = True,
+    scenario: Optional[str] = None,
+    language: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Run multi-method comparison and adaptive selector analysis."""
     benchmark_cases = get_benchmark_cases(version=dataset_version, split=split)
+    scenario_filter = str(scenario or "all").strip().lower()
+    language_filter = str(language or "all").strip().lower()
+    if scenario_filter and scenario_filter != "all":
+        benchmark_cases = [
+            case
+            for case in benchmark_cases
+            if str(case.get("scenario", "general")).strip().lower() == scenario_filter
+        ]
+    if language_filter and language_filter != "all":
+        benchmark_cases = [
+            case
+            for case in benchmark_cases
+            if str(case.get("language", "unknown")).strip().lower() == language_filter
+        ]
     enabled = [m for m in (methods or list(METHOD_REGISTRY.keys())) if m in METHOD_REGISTRY]
     if not enabled:
         enabled = list(METHOD_REGISTRY.keys())
@@ -468,6 +484,8 @@ def run_privacy_comparison(
     }
 
     case_results: List[Dict[str, Any]] = []
+    scenario_distribution: Dict[str, int] = {}
+    language_distribution: Dict[str, int] = {}
     adaptive_leak_cases = 0
     adaptive_recall_sum = 0.0
     adaptive_utility_sum = 0.0
@@ -476,6 +494,10 @@ def run_privacy_comparison(
         prompt = str(case.get("prompt", ""))
         targets = _resolve_case_targets(case)
         target_type_counts = _targets_to_type_counts(targets)
+        case_scenario = str(case.get("scenario", "general"))
+        case_language = str(case.get("language", "unknown"))
+        scenario_distribution[case_scenario] = scenario_distribution.get(case_scenario, 0) + 1
+        language_distribution[case_language] = language_distribution.get(case_language, 0) + 1
         method_runs: Dict[str, Dict[str, Any]] = {}
 
         for method_id in enabled:
@@ -645,7 +667,10 @@ def run_privacy_comparison(
     return {
         "dataset_version": dataset_version,
         "split": split,
+        "filters": {"scenario": scenario_filter, "language": language_filter},
         "total_cases": len(benchmark_cases),
+        "scenario_distribution": scenario_distribution,
+        "language_distribution": language_distribution,
         "evaluation_protocol": evaluation_protocol,
         "method_metrics": method_metrics,
         "adaptive_summary": adaptive_summary,

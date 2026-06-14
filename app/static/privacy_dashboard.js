@@ -2,6 +2,8 @@
   const resultSummary = document.getElementById("result-summary");
   const tokenInput = document.getElementById("admin-token");
   const datasetSelect = document.getElementById("benchmark-dataset");
+  const scenarioSelect = document.getElementById("comparison-scenario");
+  const languageSelect = document.getElementById("comparison-language");
   const pipelineScan = document.getElementById("pipeline-scan");
   const pipelinePolicy = document.getElementById("pipeline-policy");
   const pipelineDispatch = document.getElementById("pipeline-dispatch");
@@ -13,6 +15,7 @@
   const metricTopScore = document.getElementById("metric-top-score");
   const metricTopF1 = document.getElementById("metric-top-f1");
   const metricAdversarialLeak = document.getElementById("metric-adversarial-leak");
+  const runbookSummary = document.getElementById("runbook-summary");
   const adversarialSummary = document.getElementById("adversarial-summary");
   const vaultSummary = document.getElementById("vault-summary");
   const vivaSummary = document.getElementById("viva-summary");
@@ -23,9 +26,13 @@
   const trendChart = document.getElementById("trend-chart");
   const toastNode = document.getElementById("toast");
   const viewButtons = Array.from(document.querySelectorAll(".menu-item[data-view]"));
+  const sortableHeaders = Array.from(document.querySelectorAll("th.sortable[data-sort]"));
   const viewSections = Array.from(document.querySelectorAll(".view-section"));
   const bootstrap = window.__DASHBOARD_BOOTSTRAP__ || {};
   const logoutButton = document.getElementById("dashboard-logout");
+  let comparisonRows = [];
+  let comparisonSortKey = "composite_score";
+  let comparisonSortDir = "desc";
 
   function setViewer(title, payload) {
     if (!resultSummary) return;
@@ -310,13 +317,14 @@
       return;
     }
 
-    const top = rows[0];
+    comparisonRows = rows.slice();
+    const top = comparisonRows[0];
     if (metricTopMethod) metricTopMethod.textContent = String(top.method_name || "n/a");
     if (metricTopScore) metricTopScore.textContent = String(top.composite_score ?? "n/a");
     if (metricTopF1) metricTopF1.textContent = String(top.micro_f1 ?? "n/a");
 
     methodLeaderboard.className = "leaderboard";
-    methodLeaderboard.innerHTML = rows
+    methodLeaderboard.innerHTML = comparisonRows
       .slice(0, 5)
       .map(
         (row, idx) => `
@@ -331,8 +339,23 @@
       )
       .join("");
 
+    renderComparisonTable();
+  }
+
+  function renderComparisonTable() {
     if (comparisonTableBody) {
-      comparisonTableBody.innerHTML = rows
+      const sorted = comparisonRows
+        .slice()
+        .sort((a, b) => {
+          const av = a?.[comparisonSortKey];
+          const bv = b?.[comparisonSortKey];
+          const dir = comparisonSortDir === "asc" ? 1 : -1;
+          if (comparisonSortKey === "method_name") {
+            return String(av || "").localeCompare(String(bv || "")) * dir;
+          }
+          return (Number(av || 0) - Number(bv || 0)) * dir;
+        });
+      comparisonTableBody.innerHTML = sorted
         .slice(0, 8)
         .map(
           (row) => `
@@ -517,15 +540,25 @@
     }
   });
 
+  function getComparisonQuery() {
+    const version = datasetSelect?.value || "v3";
+    const scenario = scenarioSelect?.value || "all";
+    const language = languageSelect?.value || "all";
+    return `dataset_version=${encodeURIComponent(version)}&split=all&include_cases=0&scenario=${encodeURIComponent(
+      scenario
+    )}&language=${encodeURIComponent(language)}`;
+  }
+
+  async function runMethodComparison() {
+    const response = await callApi(`/privacy/comparison?${getComparisonQuery()}`, { auth: true });
+    setViewer("Method Comparison", response);
+    renderMethodLeaderboard(response.comparison);
+    return response;
+  }
+
   document.getElementById("btn-comparison")?.addEventListener("click", async () => {
     try {
-      const version = datasetSelect?.value || "v3";
-      const response = await callApi(
-        `/privacy/comparison?dataset_version=${encodeURIComponent(version)}&split=all&include_cases=0`,
-        { auth: true }
-      );
-      setViewer("Method Comparison", response);
-      renderMethodLeaderboard(response.comparison);
+      await runMethodComparison();
       showToast("Method comparison completed.", "success");
     } catch (err) {
       setViewer("Method Comparison Error", { status: "error", message: String(err) });
@@ -596,6 +629,79 @@
     }
   });
 
+  document.getElementById("btn-runbook")?.addEventListener("click", async () => {
+    const runbookButton = document.getElementById("btn-runbook");
+    if (runbookButton) {
+      runbookButton.disabled = true;
+      runbookButton.textContent = "Running...";
+    }
+    if (runbookSummary) {
+      runbookSummary.textContent = "Running benchmark -> comparison -> adversarial -> viva export...";
+    }
+    try {
+      const version = datasetSelect?.value || "v3";
+      const benchmark = await callApi(
+        `/privacy/benchmark?dataset_version=${encodeURIComponent(version)}&split=all&persist=1`,
+        { auth: true }
+      );
+      updateMetricsFromBenchmark(benchmark.benchmark);
+      renderChartCenter(benchmark.benchmark);
+
+      const comparison = await runMethodComparison();
+      const adversarial = await callApi(
+        `/privacy/adversarial?dataset_version=${encodeURIComponent(version)}&split=test&max_cases=20&max_variants=3&include_cases=0`,
+        { auth: true }
+      );
+      renderAdversarialSummary(adversarial.adversarial);
+
+      const viva = await callApi("/privacy/viva/export", {
+        method: "POST",
+        auth: true,
+        body: { dataset_version: version },
+      });
+      renderVivaSummary(viva);
+      await refreshHistory();
+      if (runbookSummary) {
+        runbookSummary.textContent =
+          `Runbook complete: leak=${benchmark.benchmark.metrics.core_pii_leak_rate}, top_method=${
+            comparison.comparison.method_metrics?.[0]?.method_name || "n/a"
+          }, adversarial_leak=${adversarial.adversarial.summary?.attacked_core_leak_rate ?? "n/a"}`;
+      }
+      setViewer("Runbook Complete", {
+        status: "ok",
+        message: "Benchmark, comparison, adversarial stress, and viva export completed.",
+        benchmark: benchmark.benchmark,
+        comparison: comparison.comparison,
+      });
+      showToast("Demo runbook completed.", "success");
+    } catch (err) {
+      setViewer("Runbook Error", { status: "error", message: String(err) });
+      if (runbookSummary) {
+        runbookSummary.textContent = `Runbook failed: ${String(err)}`;
+      }
+      showToast("Demo runbook failed.", "error");
+    } finally {
+      if (runbookButton) {
+        runbookButton.disabled = false;
+        runbookButton.textContent = "Run Demo Runbook";
+      }
+    }
+  });
+
+  sortableHeaders.forEach((header) => {
+    header.addEventListener("click", () => {
+      const key = header.dataset.sort;
+      if (!key) return;
+      if (comparisonSortKey === key) {
+        comparisonSortDir = comparisonSortDir === "asc" ? "desc" : "asc";
+      } else {
+        comparisonSortKey = key;
+        comparisonSortDir = key === "method_name" ? "asc" : "desc";
+      }
+      renderComparisonTable();
+    });
+  });
+
   viewButtons.forEach((button) => {
     button.addEventListener("click", () => setActiveView(button.dataset.view || "prompt"));
   });
@@ -614,10 +720,7 @@
   renderChartCenter(bootstrap.benchmark || {});
   refreshDatasetVersions();
   callApi("/privacy/vault/stats", { auth: true }).then(renderVaultSummary).catch(() => {});
-  callApi(
-    `/privacy/comparison?dataset_version=${encodeURIComponent(datasetSelect?.value || bootstrap.datasetVersion || "v3")}&split=all&include_cases=0`,
-    { auth: true }
-  ).then((response) => renderMethodLeaderboard(response.comparison)).catch(() => {});
+  runMethodComparison().catch(() => {});
   if (window.location.search.includes("token=")) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }

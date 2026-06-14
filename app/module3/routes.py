@@ -539,6 +539,8 @@ def privacy_comparison():
     include_cases = str(request.args.get("include_cases", "0")).lower() in {"1", "true", "yes"}
     raw_methods = (request.args.get("methods") or "").strip()
     methods = [item.strip() for item in raw_methods.split(",") if item.strip()] if raw_methods else None
+    scenario = (request.args.get("scenario") or "all").strip()
+    language = (request.args.get("language") or "all").strip()
 
     try:
         comparison = run_privacy_comparison(
@@ -546,6 +548,8 @@ def privacy_comparison():
             split=split,
             methods=methods,
             include_cases=include_cases,
+            scenario=scenario,
+            language=language,
         )
     except FileNotFoundError:
         return jsonify({"status": "denied", "message": f"Unknown benchmark dataset version: {dataset_version}"}), 400

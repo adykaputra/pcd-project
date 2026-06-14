@@ -24,6 +24,21 @@ def test_comparison_engine_adaptive_summary_is_consistent():
     assert isinstance(summary["selected_method_counts"], dict)
 
 
+def test_comparison_engine_supports_scenario_and_language_filters():
+    filtered = run_privacy_comparison(
+        dataset_version="v3",
+        split="all",
+        include_cases=False,
+        scenario="obfuscation",
+        language="en",
+    )
+    assert filtered["filters"]["scenario"] == "obfuscation"
+    assert filtered["filters"]["language"] == "en"
+    assert filtered["total_cases"] >= 1
+    assert set(filtered["scenario_distribution"].keys()) == {"obfuscation"}
+    assert set(filtered["language_distribution"].keys()) == {"en"}
+
+
 def test_privacy_comparison_endpoint_requires_admin_and_returns_payload(client):
     denied = client.get("/privacy/comparison?dataset_version=v3")
     assert denied.status_code == 403
@@ -35,3 +50,15 @@ def test_privacy_comparison_endpoint_requires_admin_and_returns_payload(client):
     assert payload["status"] == "ok"
     assert payload["comparison"]["dataset_version"] == "v3"
     assert len(payload["comparison"]["method_metrics"]) >= 5
+
+
+def test_privacy_comparison_endpoint_accepts_filters(client):
+    token = _admin_token(client)
+    resp = client.get(
+        "/privacy/comparison?dataset_version=v3&include_cases=0&scenario=explicit&language=en",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload["comparison"]["filters"]["scenario"] == "explicit"
+    assert payload["comparison"]["filters"]["language"] == "en"
