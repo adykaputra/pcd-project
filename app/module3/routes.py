@@ -1,11 +1,12 @@
 import os
 import hashlib
 import jwt
+import re
 from datetime import datetime
 from typing import Optional
 from flask import Blueprint, request, jsonify, current_app, render_template, redirect, url_for
 from app.audit import get_manager
-from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_vault
+from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_vault, COMMON_NAMES, COMMON_LOCATIONS
 from app.privacy_risk import evaluate_prompt_risk
 from app.privacy_benchmark import run_privacy_benchmark, run_privacy_benchmark_cross_split
 from app.privacy_calibration import calibrate_policy_thresholds
@@ -17,8 +18,19 @@ from app.privacy_comparison import run_privacy_comparison, route_prompt_adaptive
 from app.privacy_adversarial import run_adversarial_stress
 from app.privacy_vault import get_vault, maybe_sweep_retention
 from app.privacy_viva import generate_viva_pack
+from app.privacy_ner import detect_named_entities
 
 bp = Blueprint('module3', __name__)
+
+
+def _count_dictionary_terms(text: str, terms: set[str]) -> int:
+    if not text:
+        return 0
+    total = 0
+    for term in terms:
+        pattern = re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)
+        total += len(pattern.findall(text))
+    return total
 
 
 def _decode_bearer_token(req):
@@ -157,13 +169,35 @@ def _run_firewall_pipeline(
     if router_mode == "adaptive":
         routed = route_prompt_adaptive(inbound_prompt)
         tokenized_prompt = routed["redacted_prompt"]
+        base_token_counts = dict(routed.get("token_counts", {}))
+        # Preserve conservative policy behavior: contextual signals should still
+        # contribute to risk scoring even if the selected runtime method focuses
+        # mainly on core identifiers.
+        base_token_counts["name"] = max(
+            int(base_token_counts.get("name", 0)),
+            _count_dictionary_terms(inbound_prompt, COMMON_NAMES),
+        )
+        base_token_counts["location"] = max(
+            int(base_token_counts.get("location", 0)),
+            _count_dictionary_terms(inbound_prompt, COMMON_LOCATIONS),
+        )
+        ner_entities = detect_named_entities(inbound_prompt).get("entities", [])
+        ner_person = sum(1 for entity in ner_entities if str(entity.get("label", "")).upper() in {"PERSON", "PER"})
+        ner_location = sum(1 for entity in ner_entities if str(entity.get("label", "")).upper() in {"GPE", "LOC", "LOCATION"})
+        ner_org = sum(1 for entity in ner_entities if str(entity.get("label", "")).upper() in {"ORG", "ORGANIZATION"})
+        base_token_counts["ner_person"] = max(int(base_token_counts.get("ner_person", 0)), ner_person)
+        base_token_counts["ner_location"] = max(int(base_token_counts.get("ner_location", 0)), ner_location)
+        base_token_counts["ner_organization"] = max(int(base_token_counts.get("ner_organization", 0)), ner_org)
         tokenization = {
             "tokenized_prompt": tokenized_prompt,
             "had_pii": bool(routed.get("redaction_applied", tokenized_prompt != inbound_prompt)),
-            "token_counts": routed.get("token_counts", {}),
+            "token_counts": base_token_counts,
             "remaining_pii_counts": routed.get("remaining_pii_counts", {}),
             "ner_backend": (routed.get("selected_metadata") or {}).get("backend"),
-            "ner_entities_detected": int((routed.get("selected_metadata") or {}).get("entities_detected", 0) or 0),
+            "ner_entities_detected": max(
+                int((routed.get("selected_metadata") or {}).get("entities_detected", 0) or 0),
+                len(ner_entities),
+            ),
             "router": {
                 "mode": "adaptive",
                 "selected_method_id": routed.get("selected_method_id"),
