@@ -27,7 +27,7 @@
   const displayName = String(bootstrap.displayName || "Client");
   const userIdentity = String(bootstrap.userIdentity || displayName || "anonymous").toLowerCase();
   const authToken = String(bootstrap.authToken || "");
-  const REQUEST_TIMEOUT_MS = 30000;
+  const REQUEST_TIMEOUT_MS = 120000;
   const HISTORY_KEY = `privacy_firewall_chat_sessions_v2:${userIdentity}`;
   const MAX_HISTORY = 20;
   let lastAssistantText = "";
@@ -546,12 +546,12 @@
       if (err && err.name === "AbortError") {
         appendMessage(
           "assistant",
-          "I did not get a response from Ollama in time. Make sure Ollama is running and model llama3.2:3b is available.",
+          "I did not get a response from Ollama in time. First reply can take longer if the model is cold. Ensure Ollama is running and model llama3.2:3b is available.",
           "timeout"
         );
         appendEntry(
           "assistant",
-          "I did not get a response from Ollama in time. Make sure Ollama is running and model llama3.2:3b is available.",
+          "I did not get a response from Ollama in time. First reply can take longer if the model is cold. Ensure Ollama is running and model llama3.2:3b is available.",
           "timeout"
         );
       } else {

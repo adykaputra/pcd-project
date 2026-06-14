@@ -129,29 +129,59 @@ class OllamaAdapter(BaseLLMAdapter):
         default_model = os.getenv("OLLAMA_DEFAULT_MODEL", "llama3.2:3b")
         super().__init__(model=model or default_model, **kwargs)
         self.provider_name = "ollama"
-        self.base_url = (os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434") or "").rstrip("/")
+        base_url = (os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434") or "").rstrip("/")
+        base_urls_raw = (os.getenv("OLLAMA_BASE_URLS", "") or "").strip()
+        candidates = []
+        if base_urls_raw:
+            candidates.extend([item.strip().rstrip("/") for item in base_urls_raw.split(",") if item.strip()])
+        if base_url:
+            candidates.append(base_url)
+        # Docker/WSL reliability fallback: host gateway address can work even if
+        # host.docker.internal is unavailable in some host setups.
+        if "http://host.docker.internal:11434" not in candidates:
+            candidates.append("http://host.docker.internal:11434")
+        if "http://172.17.0.1:11434" not in candidates:
+            candidates.append("http://172.17.0.1:11434")
+        if "http://localhost:11434" not in candidates:
+            candidates.append("http://localhost:11434")
+        # Preserve order while removing duplicates.
+        deduped = []
+        for item in candidates:
+            if item not in deduped:
+                deduped.append(item)
+        self.base_urls = deduped
+        self.base_url = self.base_urls[0]
         self.timeout_s = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "90"))
         # Keep connection failures fast so chat UI does not appear frozen.
         self.connect_timeout_s = int(os.getenv("OLLAMA_CONNECT_TIMEOUT_SECONDS", "5"))
 
     def send_prompt(self, prompt: str) -> Dict[str, Any]:
-        endpoint = f"{self.base_url}/api/chat"
         payload = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
             "stream": False,
         }
-        try:
-            response = requests.post(
-                endpoint,
-                json=payload,
-                timeout=(self.connect_timeout_s, self.timeout_s),
-            )
-            response.raise_for_status()
-        except requests.RequestException as exc:
+        last_exc = None
+        response = None
+        endpoint = ""
+        for base in self.base_urls:
+            endpoint = f"{base}/api/chat"
+            try:
+                response = requests.post(
+                    endpoint,
+                    json=payload,
+                    timeout=(self.connect_timeout_s, self.timeout_s),
+                )
+                response.raise_for_status()
+                break
+            except requests.RequestException as exc:
+                last_exc = exc
+                response = None
+                continue
+        if response is None:
             raise RuntimeError(
-                f"Ollama request failed at {endpoint}. Ensure Ollama is running and model '{self.model}' is available: {exc}"
-            ) from exc
+                f"Ollama request failed on all endpoints {self.base_urls}. Ensure Ollama is running and model '{self.model}' is available. Last error: {last_exc}"
+            ) from last_exc
 
         body = response.json()
         text = ""
