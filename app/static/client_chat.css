@@ -1,12 +1,12 @@
 :root {
   --surface: #ffffff;
-  --surface-subtle: #f5f7fb;
-  --surface-soft: #f1f4fb;
-  --line: #dde3ef;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --accent: #10a37f;
-  --accent-strong: #0f8d6f;
+  --surface-subtle: #f6f9ff;
+  --surface-soft: #eff4fb;
+  --line: #d8e2f1;
+  --text: #17233b;
+  --muted: #5f6f89;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
   --status-ok: #059669;
   --status-warn: #b45309;
   --status-bad: #b91c1c;
@@ -21,7 +21,7 @@ body {
   min-height: 100vh;
   font-family: Inter, "Segoe UI", Roboto, sans-serif;
   color: var(--text);
-  background: #f3f4f6;
+  background: linear-gradient(180deg, #f8faff 0%, #f2f6fd 100%);
 }
 
 .chat-shell {
@@ -31,10 +31,10 @@ body {
 }
 
 .sidebar {
-  background: #171717;
-  color: #e5e7eb;
+  background: #edf3fd;
+  color: #203863;
   padding: 1rem 0.85rem;
-  border-right: 1px solid #2d2d2d;
+  border-right: 1px solid var(--line);
   display: grid;
   grid-template-rows: auto auto auto auto 1fr auto;
   gap: 0.9rem;
@@ -48,15 +48,15 @@ body {
 
 .sidebar-header p {
   margin: 0.35rem 0 0;
-  color: #9ca3af;
+  color: var(--muted);
   font-size: 0.9rem;
 }
 
 .new-chat {
-  border: 1px solid #3f3f46;
+  border: 1px solid #bfd1ed;
   border-radius: 9px;
-  background: #242424;
-  color: #f9fafb;
+  background: #ffffff;
+  color: #1e3f73;
   font-weight: 600;
   padding: 0.62rem 0.7rem;
   text-align: left;
@@ -64,7 +64,7 @@ body {
 }
 
 .new-chat:hover {
-  background: #2e2e2e;
+  background: #f7faff;
 }
 
 .sidebar-section h3 {
@@ -72,7 +72,7 @@ body {
   font-size: 0.78rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .sidebar-badges {
@@ -96,23 +96,23 @@ body {
 
 .history-item {
   width: 100%;
-  border: 1px solid #2f2f2f;
+  border: 1px solid #c4d5ee;
   border-radius: 9px;
-  background: #212121;
-  color: #d4d4d8;
+  background: #ffffff;
+  color: #244674;
   text-align: left;
   padding: 0.5rem 0.55rem;
   cursor: pointer;
 }
 
 .history-item:hover {
-  background: #2a2a2a;
+  background: #f5f9ff;
 }
 
 .history-item.active {
-  border-color: #3dd9b7;
-  background: rgba(16, 163, 127, 0.2);
-  color: #ecfdf5;
+  border-color: #98baf0;
+  background: #eef5ff;
+  color: #173d76;
 }
 
 .history-item-title {
@@ -128,32 +128,32 @@ body {
   display: block;
   margin-top: 0.2rem;
   font-size: 0.72rem;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .pill {
-  border: 1px solid #3c3c3c;
+  border: 1px solid #b4d2ee;
   border-radius: 999px;
   padding: 0.3rem 0.55rem;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #d1fae5;
+  color: #1b4f91;
   width: fit-content;
-  background: rgba(16, 163, 127, 0.12);
+  background: #f0f7ff;
 }
 
 .muted-copy ul {
   margin: 0;
   padding-left: 1rem;
-  color: #9ca3af;
+  color: var(--muted);
   font-size: 0.88rem;
   display: grid;
   gap: 0.3rem;
 }
 
 .signout-link {
-  color: #a5b4fc;
+  color: #355ca8;
   font-size: 0.85rem;
   text-decoration: none;
 }
@@ -175,6 +175,7 @@ body {
   align-items: center;
   justify-content: space-between;
   background: var(--surface);
+  box-shadow: 0 4px 15px rgba(41, 70, 117, 0.07);
 }
 
 .chat-topbar h2 {
@@ -229,10 +230,11 @@ body {
 .message {
   width: min(860px, 100%);
   margin: 0 auto;
-  border-radius: 14px;
-  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  border: 1px solid #dbe5f3;
   background: #fff;
   padding: 0.85rem 1rem;
+  box-shadow: 0 8px 22px rgba(31, 60, 106, 0.06);
 }
 
 .message .meta {
@@ -250,8 +252,8 @@ body {
 }
 
 .message.user {
-  background: #ecfdf5;
-  border-color: #a7f3d0;
+  background: #eaf2ff;
+  border-color: #b8cef3;
 }
 
 .message.assistant {
@@ -259,17 +261,18 @@ body {
 }
 
 .message.system {
-  background: #eef2ff;
-  border-color: #c7d2fe;
+  background: #f3f7ff;
+  border-color: #c8d7f2;
 }
 
 .privacy-report {
   margin: 0 auto;
   width: min(860px, calc(100% - 2.2rem));
-  border: 1px solid var(--line);
+  border: 1px solid #d6e2f2;
   background: #fff;
   border-radius: 13px;
   padding: 0.75rem 0.8rem;
+  box-shadow: 0 8px 22px rgba(31, 60, 106, 0.05);
 }
 
 .privacy-report h3 {
@@ -284,10 +287,10 @@ body {
 }
 
 .report-grid div {
-  border: 1px solid #e5e7eb;
+  border: 1px solid #dbe5f3;
   border-radius: 10px;
   padding: 0.46rem 0.52rem;
-  background: #fafafa;
+  background: #f7faff;
 }
 
 .report-grid span {
@@ -312,12 +315,13 @@ body {
 .composer {
   margin: 0 auto 1rem;
   width: min(860px, calc(100% - 2.2rem));
-  border: 1px solid #d1d5db;
-  border-radius: 14px;
+  border: 1px solid #d4dff0;
+  border-radius: 16px;
   background: var(--surface);
   padding: 0.7rem;
   display: grid;
   gap: 0.6rem;
+  box-shadow: 0 12px 30px rgba(35, 62, 108, 0.08);
 }
 
 .quick-prompts {
@@ -327,25 +331,25 @@ body {
 }
 
 .quick-btn {
-  border: 1px solid #d1d5db;
+  border: 1px solid #cddcf0;
   border-radius: 999px;
   padding: 0.3rem 0.58rem;
   background: #fff;
-  color: #374151;
+  color: #2d4f82;
   font-size: 0.76rem;
   cursor: pointer;
 }
 
 .quick-btn:hover {
-  border-color: var(--accent);
-  color: #065f46;
+  border-color: #90b6f0;
+  color: #1d4e98;
 }
 
 textarea,
 input,
 select {
   width: 100%;
-  border: 1px solid #d1d5db;
+  border: 1px solid #cfdcef;
   border-radius: 10px;
   padding: 0.6rem 0.65rem;
   color: var(--text);
@@ -363,8 +367,8 @@ textarea:focus,
 input:focus,
 select:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.18);
+  border-color: #90b6f0;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.13);
 }
 
 .composer-row {
@@ -387,30 +391,14 @@ button {
   border: 0;
   border-radius: 10px;
   padding: 0.62rem 0.75rem;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), #3b82f6);
   color: #fff;
   font-weight: 600;
   cursor: pointer;
 }
 
 button:hover {
-  background: var(--accent-strong);
-}
-
-.history-item {
-  background: #212121;
-  color: #d4d4d8;
-  border: 1px solid #2f2f2f;
-}
-
-.history-item:hover {
-  background: #2a2a2a;
-}
-
-.history-item.active {
-  border-color: #3dd9b7;
-  background: rgba(16, 163, 127, 0.2);
-  color: #ecfdf5;
+  background: linear-gradient(135deg, var(--accent-strong), #2563eb);
 }
 
 .composer-actions {
@@ -420,13 +408,13 @@ button:hover {
 }
 
 .btn-secondary {
-  border: 1px solid #d1d5db;
+  border: 1px solid #cfdcef;
   background: #fff;
-  color: #374151;
+  color: #375883;
 }
 
 .btn-secondary:hover {
-  background: #f9fafb;
+  background: #f4f8ff;
 }
 
 .typing {
@@ -443,7 +431,7 @@ button:hover {
   .sidebar {
     grid-template-rows: auto auto auto auto;
     border-right: 0;
-    border-bottom: 1px solid #2d2d2d;
+    border-bottom: 1px solid var(--line);
   }
 
   .signout-link {

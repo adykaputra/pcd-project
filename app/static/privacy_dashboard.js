@@ -215,7 +215,7 @@
   function renderTrendChart(history) {
     if (!trendChart || !Array.isArray(history) || history.length === 0) {
       if (trendChart) {
-        trendChart.innerHTML = `<text x="20" y="28" fill="#9cadcf" font-size="13">No benchmark history yet. Run Benchmark to generate trend data.</text>`;
+        trendChart.innerHTML = `<text x="20" y="28" fill="#5f6f89" font-size="13">No benchmark history yet. Run Benchmark to generate trend data.</text>`;
       }
       return;
     }
@@ -261,14 +261,14 @@
       .join("");
 
     trendChart.innerHTML = `
-      <rect x="0" y="0" width="${width}" height="${height}" fill="#0a1126"></rect>
-      <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" stroke="#2d3b63" stroke-width="1"></line>
-      <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#2d3b63" stroke-width="1"></line>
-      <path d="${leakPath}" fill="none" stroke="#22d3ee" stroke-width="2.2"></path>
-      <path d="${latencyPath}" fill="none" stroke="#a78bfa" stroke-width="2.2"></path>
+      <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff"></rect>
+      <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" stroke="#c7d5ea" stroke-width="1"></line>
+      <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#c7d5ea" stroke-width="1"></line>
+      <path d="${leakPath}" fill="none" stroke="#0ea5e9" stroke-width="2.2"></path>
+      <path d="${latencyPath}" fill="none" stroke="#6366f1" stroke-width="2.2"></path>
       ${dots}
-      <text x="${padX}" y="${padY - 8}" fill="#9cadcf" font-size="12">Leak rate</text>
-      <text x="${padX + 90}" y="${padY - 8}" fill="#9cadcf" font-size="12">Latency (ms)</text>
+      <text x="${padX}" y="${padY - 8}" fill="#5f6f89" font-size="12">Leak rate</text>
+      <text x="${padX + 90}" y="${padY - 8}" fill="#5f6f89" font-size="12">Latency (ms)</text>
     `;
   }
 

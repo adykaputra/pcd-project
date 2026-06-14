@@ -1,13 +1,13 @@
 :root {
-  --page-bg: #eef3ff;
-  --left-bg: #f7f9ff;
+  --page-bg: #f4f7fd;
+  --left-bg: #f6f9ff;
   --card-bg: #ffffff;
-  --line: #d7dfef;
-  --input-bg: #eff3fb;
-  --text: #101c42;
-  --muted: #5b6f97;
-  --accent: #315fd6;
-  --accent-hover: #274dae;
+  --line: #dbe3f2;
+  --input-bg: #f2f6fc;
+  --text: #17233b;
+  --muted: #5f6f89;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
   --danger: #bc3c50;
 }
 
@@ -20,7 +20,7 @@ body {
   min-height: 100vh;
   font-family: Inter, "Segoe UI", Roboto, sans-serif;
   color: var(--text);
-  background: linear-gradient(180deg, var(--page-bg), #f7f9ff 48%, #ecf2ff);
+  background: linear-gradient(180deg, var(--page-bg), #f8faff 48%, #eff4fc);
 }
 
 .auth-layout {
@@ -175,7 +175,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  box-shadow: 0 16px 35px rgba(36, 63, 125, 0.1);
+  box-shadow: 0 16px 36px rgba(37, 60, 101, 0.09);
 }
 
 .card-icon {
@@ -189,8 +189,8 @@ body {
   font-weight: 700;
   font-size: 0.88rem;
   letter-spacing: 0.07em;
-  background: linear-gradient(135deg, #315fd6, #547ef0);
-  box-shadow: 0 12px 24px rgba(49, 95, 214, 0.24);
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
 }
 
 .auth-card h2 {
