@@ -19,7 +19,8 @@
   const logoutButton = document.getElementById("logout-btn");
   const historyList = document.getElementById("history-list");
   const welcomePanel = document.getElementById("chat-welcome");
-  const quickButtons = Array.from(document.querySelectorAll(".quick-btn, .welcome-action"));
+  const suggestionsBar = document.getElementById("suggestions-bar");
+  const quickButtons = Array.from(document.querySelectorAll(".suggestion-btn, .welcome-action"));
   const workspaceButtons = Array.from(document.querySelectorAll(".workspace-btn"));
   const chatTitle = document.querySelector(".chat-topbar h2");
   const bootstrap = window.__CLIENT_BOOTSTRAP__ || {};
@@ -205,6 +206,9 @@
     if (role === "user" && welcomePanel) {
       welcomePanel.hidden = true;
     }
+    if (role === "user" && suggestionsBar) {
+      suggestionsBar.hidden = true;
+    }
   }
 
   function renderActiveSession() {
@@ -219,6 +223,9 @@
     updateTurns();
     if (welcomePanel) {
       welcomePanel.hidden = turns > 0;
+    }
+    if (suggestionsBar) {
+      suggestionsBar.hidden = turns === 0 ? false : true;
     }
     const lastAssistant = [...active.entries].reverse().find((entry) => entry.role === "assistant");
     lastAssistantText = lastAssistant?.text || "";
@@ -339,6 +346,9 @@
       setPromptDraft(draft);
       if (welcomePanel) {
         welcomePanel.hidden = false;
+      }
+      if (suggestionsBar) {
+        suggestionsBar.hidden = false;
       }
       const label = btn.textContent?.trim() || workspace;
       appendMessage(

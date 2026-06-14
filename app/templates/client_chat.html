@@ -58,50 +58,52 @@
                 </div>
             </header>
 
-            <section id="chat-welcome" class="chat-welcome">
-                <div class="welcome-orb" aria-hidden="true"></div>
-                <h3>Hi {{ display_name }}, start a privacy-safe session</h3>
-                <p>Choose a task to begin. Your prompt goes through redaction and policy checks before any model response.</p>
-                <div class="welcome-cards">
-                    <button class="welcome-card welcome-action" type="button" data-prompt="Show me safe prompt-writing guidelines for customer support logs.">
-                        <strong>Guidelines</strong>
-                        <span>Learn safe prompt practices</span>
-                    </button>
-                    <button class="welcome-card welcome-action" type="button" data-prompt="Analyze this text for potential PII exposure before sending to AI.">
-                        <strong>PII Scanner</strong>
-                        <span>Check exposure risk first</span>
-                    </button>
-                    <button class="welcome-card welcome-action" type="button" data-prompt="Assess the risk level of sharing this message with an LLM.">
-                        <strong>Risk Assessment</strong>
-                        <span>Get policy risk feedback</span>
-                    </button>
-                </div>
-            </section>
+            <div class="chat-stage">
+                <section id="chat-welcome" class="chat-welcome">
+                    <div class="welcome-orb" aria-hidden="true"></div>
+                    <h3>Hi {{ display_name }}</h3>
+                    <p>How can I help you today?</p>
+                    <div class="welcome-cards">
+                        <button class="task-card welcome-action" type="button" data-prompt="Show me safe prompt-writing guidelines for customer support logs.">
+                            <strong>Guidelines</strong>
+                            <span>Learn safe prompt practices</span>
+                        </button>
+                        <button class="task-card welcome-action" type="button" data-prompt="Analyze this text for potential PII exposure before sending to AI.">
+                            <strong>AI Scanner</strong>
+                            <span>Check exposure risk first</span>
+                        </button>
+                        <button class="task-card welcome-action" type="button" data-prompt="Assess the risk level of sharing this message with an LLM.">
+                            <strong>Assessment</strong>
+                            <span>Get policy risk feedback</span>
+                        </button>
+                    </div>
+                </section>
 
-            <section id="messages" class="messages">
-                <div class="message system">
-                    <div class="meta">system</div>
-                    <p>Hi {{ display_name }}, I am your privacy-safe AI assistant. I will protect personal identifiers before responding.</p>
-                </div>
-            </section>
+                <section id="messages" class="messages">
+                    <div class="message system">
+                        <div class="meta">system</div>
+                        <p>Hi {{ display_name }}, I am your privacy-safe AI assistant. I will protect personal identifiers before responding.</p>
+                    </div>
+                </section>
 
-            <section id="privacy-report" class="privacy-report" hidden>
-                <h3>Privacy Insight</h3>
-                <div class="report-grid">
-                    <div><span>Policy</span><strong id="report-policy">n/a</strong></div>
-                    <div><span>Risk Score</span><strong id="report-score">n/a</strong></div>
-                    <div><span>Risk Level</span><strong id="report-level">n/a</strong></div>
-                    <div><span>Tokens Applied</span><strong id="report-tokens">0</strong></div>
-                </div>
-                <p id="report-reasons" class="muted"></p>
-                <p id="report-proof" class="muted"></p>
-            </section>
+                <section id="privacy-report" class="privacy-report" hidden>
+                    <h3>Privacy Insight</h3>
+                    <div class="report-grid">
+                        <div><span>Policy</span><strong id="report-policy">n/a</strong></div>
+                        <div><span>Risk Score</span><strong id="report-score">n/a</strong></div>
+                        <div><span>Risk Level</span><strong id="report-level">n/a</strong></div>
+                        <div><span>Tokens Applied</span><strong id="report-tokens">0</strong></div>
+                    </div>
+                    <p id="report-reasons" class="muted"></p>
+                    <p id="report-proof" class="muted"></p>
+                </section>
+            </div>
 
             <form id="chat-form" class="composer">
-                <section class="quick-prompts">
-                    <button class="quick-btn" type="button" data-prompt="Summarize zero trust in beginner-friendly language.">Zero Trust Summary</button>
-                    <button class="quick-btn" type="button" data-prompt="Help me draft a complaint email without including personal data.">Complaint Draft</button>
-                    <button class="quick-btn" type="button" data-prompt="What data should never be shared with AI tools?">Safe Data Guide</button>
+                <section id="suggestions-bar" class="quick-prompts">
+                    <button class="suggestion-btn" type="button" data-prompt="Summarize zero trust in beginner-friendly language.">Zero Trust Summary</button>
+                    <button class="suggestion-btn" type="button" data-prompt="Help me draft a complaint email without including personal data.">Complaint Draft</button>
+                    <button class="suggestion-btn" type="button" data-prompt="What data should never be shared with AI tools?">Safe Data Guide</button>
                 </section>
                 <div class="composer-input-row">
                     <textarea id="chat-input" rows="1" placeholder="Ask a question..."></textarea>
