@@ -25,9 +25,9 @@
                 <div class="status-pill online">Gateway Online</div>
                 <div class="status-pill secure">Policy Guard Active</div>
             </div>
-            <div class="token-box">
-                <label for="admin-token">Admin JWT (optional override)</label>
-                <textarea id="admin-token" rows="5" placeholder="Paste token here">{{ initial_token or "" }}</textarea>
+            <div class="sidebar-note">
+                <strong>Secure admin access</strong>
+                <p>This dashboard uses encrypted cookie sessions. Manual JWT input has been removed.</p>
             </div>
             <div class="quick-links">
                 <a id="dashboard-logout" href="/">Sign Out</a>
@@ -38,12 +38,12 @@
         <main class="content">
             <header class="hero view-section" data-view="prompt">
                 <div>
-                    <h2>Assessor Demo - Prompt Test</h2>
-                    <p>Step 1: run a prompt with PII. Step 2: open Redaction Proof tab to show tokenized model input. Step 3: open Evidence Log tab for session trace.</p>
+                    <h2>Privacy Firewall Operations</h2>
+                    <p>Run live prompts through the firewall, verify tokenized model dispatch, and review user-safe evidence logs from one control center.</p>
                 </div>
                 <div class="hero-metrics">
                     <div class="metric-card">
-                        <span>Dataset</span>
+                        <span>Benchmark Dataset</span>
                         <strong id="metric-dataset">{{ dataset_version or (benchmark.metrics.dataset_version if benchmark else "n/a") }}</strong>
                     </div>
                     <div class="metric-card">
@@ -59,13 +59,13 @@
 
             <section class="panel-grid">
                 <article id="panel-auth" class="panel view-section" data-view="prompt">
-                    <h3>Admin Authentication</h3>
+                    <h3>Admin Session Check</h3>
                     <form id="login-form">
                         <label>Password</label>
                         <input id="login-password" type="password" placeholder="admin-pass" />
-                        <button type="submit">Get Token</button>
+                        <button type="submit">Refresh Session</button>
                     </form>
-                    <p class="muted">Token is reused for admin-only API calls from this interface.</p>
+                    <p class="muted">Use this only when your admin session expires. API actions use secure cookie auth automatically.</p>
                 </article>
 
                 <article id="panel-generate" class="panel view-section" data-view="prompt">
@@ -99,7 +99,31 @@
                         </div>
                         <button type="submit">Run Generate</button>
                     </form>
-                    <p class="muted">Use this as assessor proof: the response shows whether tokenization was applied before model dispatch.</p>
+                    <p class="muted">This runs a live request through detection, policy scoring, and tokenized model dispatch.</p>
+                </article>
+
+                <article id="panel-pipeline" class="panel view-section" data-view="prompt">
+                    <h3>Live Pipeline Status</h3>
+                    <p class="muted">After each Generate run, these checkpoints update with verifiable firewall evidence.</p>
+                    <div class="proof-grid pipeline-grid">
+                        <div class="proof-card">
+                            <span>Input Scan</span>
+                            <strong id="pipeline-scan">Waiting for request</strong>
+                        </div>
+                        <div class="proof-card">
+                            <span>Policy Decision</span>
+                            <strong id="pipeline-policy">Not evaluated yet</strong>
+                        </div>
+                        <div class="proof-card">
+                            <span>Model Dispatch</span>
+                            <strong id="pipeline-dispatch">No dispatch yet</strong>
+                        </div>
+                        <div class="proof-card">
+                            <span>Traceability</span>
+                            <strong id="pipeline-trace">No audit proof yet</strong>
+                        </div>
+                    </div>
+                    <p id="pipeline-detail" class="muted">Run Generate to capture tokenized payload proof.</p>
                 </article>
 
                 <article id="panel-governance" class="panel view-section" data-view="proof">
@@ -116,28 +140,28 @@
                         <button id="btn-benchmark" type="button">Run Privacy Check</button>
                         <button id="btn-summary" type="button">Show Audit Summary</button>
                     </div>
-                    <p class="muted">These two buttons produce measurable evidence (leak/detection and block/challenge totals).</p>
+                    <p class="muted">These controls produce measurable evidence: leak rate, detection rate, and policy action totals.</p>
                 </article>
             </section>
 
             <section class="panel wide view-section" data-view="proof">
-                <h3>What each action shows</h3>
+                <h3>How to Read This Dashboard</h3>
                 <div class="proof-grid">
                     <div class="proof-card">
                         <span>Run Generate</span>
-                        <strong>Single prompt result</strong>
+                        <strong>Live firewall decision per prompt</strong>
                     </div>
                     <div class="proof-card">
                         <span>Run Privacy Check</span>
-                        <strong>Leak and detection metrics</strong>
+                        <strong>Quality score on benchmark prompts</strong>
                     </div>
                     <div class="proof-card">
                         <span>Show Audit Summary</span>
-                        <strong>Block/challenge totals</strong>
+                        <strong>24h totals of allow/challenge/block</strong>
                     </div>
                     <div class="proof-card">
                         <span>Evidence Log</span>
-                        <strong>User + session trace</strong>
+                        <strong>User/session trace with counts</strong>
                     </div>
                 </div>
             </section>
@@ -228,8 +252,8 @@
             </section>
 
             <section id="panel-chart" class="panel wide view-section" data-view="proof">
-                <h3>Chart Center</h3>
-                <p class="muted">High-level quality indicators for assessor viewing (leak, detection, policy distribution, trend).</p>
+                <h3>Operational Analytics</h3>
+                <p class="muted">High-level privacy quality indicators: leak, detection, policy distribution, and trend over time.</p>
                 <div class="chart-grid">
                     <div class="chart-card">
                         <h4>Privacy Quality Snapshot</h4>

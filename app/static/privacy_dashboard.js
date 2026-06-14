@@ -2,6 +2,11 @@
   const resultSummary = document.getElementById("result-summary");
   const tokenInput = document.getElementById("admin-token");
   const datasetSelect = document.getElementById("benchmark-dataset");
+  const pipelineScan = document.getElementById("pipeline-scan");
+  const pipelinePolicy = document.getElementById("pipeline-policy");
+  const pipelineDispatch = document.getElementById("pipeline-dispatch");
+  const pipelineTrace = document.getElementById("pipeline-trace");
+  const pipelineDetail = document.getElementById("pipeline-detail");
   const qualityCards = document.getElementById("quality-cards");
   const policyBars = document.getElementById("policy-bars");
   const trendChart = document.getElementById("trend-chart");
@@ -24,6 +29,17 @@
     const status = payload.status ? `Status: ${payload.status}. ` : "";
     const message = payload.message ? `${payload.message}. ` : "";
     const details = [];
+    if (payload.risk_assessment?.policy_action) {
+      details.push(`policy=${payload.risk_assessment.policy_action}`);
+    }
+    if (payload.tokenization?.token_counts) {
+      const counts = payload.tokenization.token_counts;
+      const totalTokens = Object.values(counts).reduce((acc, n) => acc + asNumber(n), 0);
+      details.push(`pii_tokens=${totalTokens}`);
+    }
+    if (payload.dispatch_proof?.model_input_is_tokenized !== undefined) {
+      details.push(`dispatch_tokenized=${payload.dispatch_proof.model_input_is_tokenized ? "yes" : "no"}`);
+    }
     if (payload.summary?.total_blocked_last_24h !== undefined) {
       details.push(`blocked_last_24h=${payload.summary.total_blocked_last_24h}`);
     }
@@ -103,6 +119,36 @@
   function asNumber(value, fallback = 0) {
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
+  }
+
+  function updatePipeline(payload) {
+    if (!payload || typeof payload !== "object") return;
+    const tokenization = payload.tokenization || {};
+    const risk = payload.risk_assessment || {};
+    const proof = payload.dispatch_proof || {};
+    const tokenCounts = tokenization.token_counts || {};
+    const totalPiiTokens = Object.values(tokenCounts).reduce((acc, n) => acc + asNumber(n), 0);
+
+    if (pipelineScan) {
+      pipelineScan.textContent = tokenization.applied
+        ? `PII detected (${totalPiiTokens} token${totalPiiTokens === 1 ? "" : "s"})`
+        : "No PII detected";
+    }
+    if (pipelinePolicy) {
+      const riskScore = risk.risk_score !== undefined ? Number(risk.risk_score).toFixed(2) : "n/a";
+      pipelinePolicy.textContent = `${String(risk.policy_action || "allow").toUpperCase()} (risk ${riskScore})`;
+    }
+    if (pipelineDispatch) {
+      pipelineDispatch.textContent = proof.model_input_is_tokenized ? "Tokenized payload sent" : "Dispatch proof unavailable";
+    }
+    if (pipelineTrace) {
+      pipelineTrace.textContent = proof.original_prompt_sha256 ? "Hash + audit trail recorded" : "No trace hash yet";
+    }
+    if (pipelineDetail) {
+      pipelineDetail.textContent = proof.tokenized_prompt_preview
+        ? `Latest tokenized preview: ${proof.tokenized_prompt_preview}`
+        : "Run Generate to capture tokenized payload proof.";
+    }
   }
 
   function extractMetrics(payload) {
@@ -274,7 +320,7 @@
       });
       if (tokenInput) tokenInput.value = payload.token || "";
       setViewer("Login Success", payload);
-      showToast("Admin token acquired.", "success");
+      showToast("Admin session refreshed.", "success");
       await refreshDatasetVersions();
     } catch (err) {
       setViewer("Login Error", { status: "error", message: String(err) });
@@ -298,6 +344,7 @@
     try {
       const response = await callApi("/generate", { method: "POST", body: payload });
       setViewer("Generate Result", response);
+      updatePipeline(response);
       renderChartCenter(response);
       showToast("Generate request completed.", "success");
     } catch (err) {
@@ -349,11 +396,8 @@
 
   setActiveView("prompt");
   renderChartCenter(bootstrap.benchmark || {});
+  refreshDatasetVersions();
   if (window.location.search.includes("token=")) {
     window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  if (getToken()) {
-    refreshDatasetVersions();
   }
 })();

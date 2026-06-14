@@ -122,6 +122,26 @@ body {
   background: rgba(59, 130, 246, 0.12);
 }
 
+.sidebar-note {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(10, 17, 38, 0.7);
+  padding: 0.65rem 0.7rem;
+}
+
+.sidebar-note strong {
+  display: block;
+  font-size: 0.82rem;
+  color: #dbeafe;
+}
+
+.sidebar-note p {
+  margin: 0.32rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .quick-links {
   display: flex;
   flex-wrap: wrap;
@@ -142,7 +162,6 @@ body {
   border-color: #63d8ff;
 }
 
-.token-box label,
 label {
   display: block;
   font-size: 0.76rem;
@@ -152,7 +171,6 @@ label {
   margin-bottom: 0.35rem;
 }
 
-.token-box textarea,
 textarea,
 input,
 select {
@@ -220,7 +238,7 @@ select {
 
 .panel-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1rem;
 }
 
@@ -304,6 +322,10 @@ button:hover {
   grid-template-columns: repeat(4, minmax(140px, 1fr));
   gap: 0.6rem;
   margin-bottom: 0.7rem;
+}
+
+.pipeline-grid {
+  margin-top: 0.5rem;
 }
 
 .proof-card {
