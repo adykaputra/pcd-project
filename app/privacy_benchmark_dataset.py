@@ -41,3 +41,30 @@ def get_benchmark_cases(version: str = "v1", split: str = "all") -> List[Dict[st
         return list(cases)
     target = (split or "").strip().lower()
     return [c for c in cases if str(c.get("split", "all")).lower() == target]
+
+
+def summarize_benchmark_dimensions(version: str = "v1", split: str = "all") -> Dict[str, Any]:
+    """Return searchable dataset dimensions for dynamic UI filters."""
+    cases = get_benchmark_cases(version=version, split=split)
+    scenario_counts: Dict[str, int] = {}
+    language_counts: Dict[str, int] = {}
+    split_counts: Dict[str, int] = {}
+
+    for case in cases:
+        scenario = str(case.get("scenario", "general")).strip() or "general"
+        language = str(case.get("language", "unknown")).strip() or "unknown"
+        case_split = str(case.get("split", "all")).strip() or "all"
+        scenario_counts[scenario] = scenario_counts.get(scenario, 0) + 1
+        language_counts[language] = language_counts.get(language, 0) + 1
+        split_counts[case_split] = split_counts.get(case_split, 0) + 1
+
+    return {
+        "dataset_version": version,
+        "split": split,
+        "total_cases": len(cases),
+        "scenarios": sorted(scenario_counts.keys()),
+        "languages": sorted(language_counts.keys()),
+        "scenario_counts": scenario_counts,
+        "language_counts": language_counts,
+        "split_counts": split_counts,
+    }

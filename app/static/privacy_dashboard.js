@@ -4,6 +4,7 @@
   const datasetSelect = document.getElementById("benchmark-dataset");
   const scenarioSelect = document.getElementById("comparison-scenario");
   const languageSelect = document.getElementById("comparison-language");
+  const comparisonFilterContext = document.getElementById("comparison-filter-context");
   const pipelineScan = document.getElementById("pipeline-scan");
   const pipelinePolicy = document.getElementById("pipeline-policy");
   const pipelineDispatch = document.getElementById("pipeline-dispatch");
@@ -33,6 +34,7 @@
   let comparisonRows = [];
   let comparisonSortKey = "composite_score";
   let comparisonSortDir = "desc";
+  let comparisonDimensions = null;
 
   function setViewer(title, payload) {
     if (!resultSummary) return;
@@ -374,6 +376,18 @@
     }
   }
 
+  function updateSortIndicators() {
+    sortableHeaders.forEach((header) => {
+      const isActive = header.dataset.sort === comparisonSortKey;
+      header.classList.toggle("active", isActive);
+      if (isActive) {
+        header.dataset.sortDir = comparisonSortDir;
+      } else {
+        delete header.dataset.sortDir;
+      }
+    });
+  }
+
   function renderAdversarialSummary(adversarial) {
     if (!adversarialSummary) return;
     if (!adversarial || !adversarial.summary) {
@@ -470,6 +484,66 @@
     }
   }
 
+  function populateFilterSelect(selectNode, allLabel, values, counts, preferredValue = "all") {
+    if (!selectNode) return;
+    const safeValues = Array.isArray(values) ? values : [];
+    const current = selectNode.value || preferredValue || "all";
+    selectNode.innerHTML = "";
+    const allOption = document.createElement("option");
+    allOption.value = "all";
+    allOption.textContent = `${allLabel} (${Object.values(counts || {}).reduce((acc, n) => acc + asNumber(n), 0) || 0})`;
+    selectNode.appendChild(allOption);
+    safeValues.forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = `${value} (${asNumber((counts || {})[value])})`;
+      selectNode.appendChild(option);
+    });
+    const desired = safeValues.includes(current) ? current : "all";
+    selectNode.value = desired;
+  }
+
+  function renderComparisonFilterContext(dimensions) {
+    if (!comparisonFilterContext) return;
+    if (!dimensions) {
+      comparisonFilterContext.textContent = "Filter options are loading from the selected dataset.";
+      return;
+    }
+    const scenarioCount = Array.isArray(dimensions.scenarios) ? dimensions.scenarios.length : 0;
+    const languageCount = Array.isArray(dimensions.languages) ? dimensions.languages.length : 0;
+    comparisonFilterContext.textContent =
+      `Dataset ${dimensions.dataset_version || "n/a"} has ${dimensions.total_cases || 0} cases, ${scenarioCount} scenario type(s), and ${languageCount} language profile(s).`;
+  }
+
+  async function refreshComparisonOptions() {
+    if (!datasetSelect) return null;
+    const version = datasetSelect.value || "v3";
+    const response = await callApi(
+      `/privacy/comparison/options?dataset_version=${encodeURIComponent(version)}&split=all`,
+      { auth: true }
+    );
+    const dimensions = response?.dimensions || null;
+    comparisonDimensions = dimensions;
+    if (dimensions) {
+      populateFilterSelect(
+        scenarioSelect,
+        "all scenarios",
+        dimensions.scenarios || [],
+        dimensions.scenario_counts || {},
+        "all"
+      );
+      populateFilterSelect(
+        languageSelect,
+        "all languages",
+        dimensions.languages || [],
+        dimensions.language_counts || {},
+        "all"
+      );
+    }
+    renderComparisonFilterContext(dimensions);
+    return dimensions;
+  }
+
   document.getElementById("login-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const password = document.getElementById("login-password").value;
@@ -553,6 +627,12 @@
     const response = await callApi(`/privacy/comparison?${getComparisonQuery()}`, { auth: true });
     setViewer("Method Comparison", response);
     renderMethodLeaderboard(response.comparison);
+    const scenarioFilter = response?.comparison?.filters?.scenario || "all";
+    const languageFilter = response?.comparison?.filters?.language || "all";
+    if (comparisonFilterContext) {
+      comparisonFilterContext.textContent =
+        `Comparison scope: ${response?.comparison?.total_cases || 0} case(s), scenario=${scenarioFilter}, language=${languageFilter}.`;
+    }
     return response;
   }
 
@@ -699,7 +779,35 @@
         comparisonSortDir = key === "method_name" ? "asc" : "desc";
       }
       renderComparisonTable();
+      updateSortIndicators();
     });
+  });
+
+  datasetSelect?.addEventListener("change", async () => {
+    try {
+      await refreshComparisonOptions();
+      await runMethodComparison();
+      showToast("Dataset scope refreshed.", "success");
+    } catch (err) {
+      setViewer("Dataset Refresh Error", { status: "error", message: String(err) });
+      showToast("Dataset refresh failed.", "error");
+    }
+  });
+
+  scenarioSelect?.addEventListener("change", async () => {
+    try {
+      await runMethodComparison();
+    } catch (err) {
+      setViewer("Scenario Filter Error", { status: "error", message: String(err) });
+    }
+  });
+
+  languageSelect?.addEventListener("change", async () => {
+    try {
+      await runMethodComparison();
+    } catch (err) {
+      setViewer("Language Filter Error", { status: "error", message: String(err) });
+    }
   });
 
   viewButtons.forEach((button) => {
@@ -717,8 +825,11 @@
   });
 
   setActiveView("proof");
+  updateSortIndicators();
   renderChartCenter(bootstrap.benchmark || {});
-  refreshDatasetVersions();
+  refreshDatasetVersions()
+    .then(() => refreshComparisonOptions())
+    .catch(() => {});
   callApi("/privacy/vault/stats", { auth: true }).then(renderVaultSummary).catch(() => {});
   runMethodComparison().catch(() => {});
   if (window.location.search.includes("token=")) {

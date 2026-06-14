@@ -13,7 +13,7 @@ from app.privacy_calibration import calibrate_policy_thresholds
 from app.privacy_autotune import recommend_thresholds_from_audit
 from app.privacy_policy_config import save_policy_thresholds, get_policy_thresholds
 from app.privacy_benchmark_history import get_benchmark_history_manager
-from app.privacy_benchmark_dataset import list_dataset_versions
+from app.privacy_benchmark_dataset import list_dataset_versions, summarize_benchmark_dimensions
 from app.privacy_comparison import run_privacy_comparison, route_prompt_adaptive
 from app.privacy_adversarial import run_adversarial_stress
 from app.privacy_vault import get_vault, maybe_sweep_retention
@@ -555,6 +555,21 @@ def privacy_comparison():
         return jsonify({"status": "denied", "message": f"Unknown benchmark dataset version: {dataset_version}"}), 400
 
     return jsonify({"status": "ok", "comparison": comparison}), 200
+
+
+@bp.route('/privacy/comparison/options', methods=['GET'])
+def privacy_comparison_options():
+    """Admin-only endpoint for dynamic comparison filter options."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+
+    dataset_version = request.args.get("dataset_version", "v3")
+    split = request.args.get("split", "all")
+    try:
+        dimensions = summarize_benchmark_dimensions(version=dataset_version, split=split)
+    except FileNotFoundError:
+        return jsonify({"status": "denied", "message": f"Unknown benchmark dataset version: {dataset_version}"}), 400
+    return jsonify({"status": "ok", "dimensions": dimensions}), 200
 
 
 @bp.route('/privacy/adversarial', methods=['GET'])

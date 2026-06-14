@@ -141,26 +141,16 @@
                             <label>Scenario Filter</label>
                             <select id="comparison-scenario">
                                 <option value="all" selected>all scenarios</option>
-                                <option value="clean">clean</option>
-                                <option value="explicit">explicit</option>
-                                <option value="obfuscation">obfuscation</option>
-                                <option value="multilingual-contextual">multilingual-contextual</option>
-                                <option value="mixed-language">mixed-language</option>
-                                <option value="organization">organization</option>
-                                <option value="adversarial-jailbreak">adversarial-jailbreak</option>
-                                <option value="intent-risk">intent-risk</option>
                             </select>
                         </div>
                         <div>
                             <label>Language Filter</label>
                             <select id="comparison-language">
                                 <option value="all" selected>all languages</option>
-                                <option value="en">en</option>
-                                <option value="ms">ms</option>
-                                <option value="ms-en">ms-en</option>
                             </select>
                         </div>
                     </div>
+                    <p id="comparison-filter-context" class="muted">Filter options are loading from the selected dataset.</p>
                     <div class="action-row">
                         <button id="btn-benchmark" type="button">Run Privacy Check</button>
                         <button id="btn-summary" type="button">Show Audit Summary</button>
@@ -200,13 +190,13 @@
                     <table>
                         <thead>
                             <tr>
-                                <th class="sortable" data-sort="method_name">Method</th>
-                                <th class="sortable" data-sort="composite_score">Composite</th>
-                                <th class="sortable" data-sort="avg_target_recall">Recall</th>
-                                <th class="sortable" data-sort="core_pii_leak_rate">Leak Rate</th>
-                                <th class="sortable" data-sort="micro_f1">Micro F1</th>
-                                <th class="sortable" data-sort="avg_latency_ms">Latency (ms)</th>
-                                <th class="sortable" data-sort="wins">Wins</th>
+                                <th class="sortable" data-sort="method_name">Method <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="composite_score">Composite <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="avg_target_recall">Recall <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="core_pii_leak_rate">Leak Rate <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="micro_f1">Micro F1 <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="avg_latency_ms">Latency (ms) <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="wins">Wins <span class="sort-indicator"></span></th>
                             </tr>
                         </thead>
                         <tbody id="comparison-table-body">

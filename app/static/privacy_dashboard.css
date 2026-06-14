@@ -287,6 +287,10 @@ form {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+#comparison-filter-context {
+  margin: 0.55rem 0 0;
+}
+
 .action-row {
   display: flex;
   flex-wrap: wrap;
@@ -634,6 +638,25 @@ th.sortable {
 
 th.sortable:hover {
   color: #173d76;
+}
+
+th.sortable.active {
+  color: #143a74;
+}
+
+.sort-indicator {
+  display: inline-block;
+  min-width: 0.9rem;
+  text-align: center;
+  color: #7f95b8;
+}
+
+th.sortable.active[data-sort-dir="asc"] .sort-indicator::before {
+  content: "↑";
+}
+
+th.sortable.active[data-sort-dir="desc"] .sort-indicator::before {
+  content: "↓";
 }
 
 td {
