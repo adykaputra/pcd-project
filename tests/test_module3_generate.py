@@ -64,10 +64,9 @@ def test_generate_auto_redacts_pii_before_adapter(client, monkeypatch):
     assert body.get('tokenization', {}).get('applied') is True
 
     sent_prompt = mock_adapter.send_prompt.call_args[0][0]
-    assert re.search(r"\[PHONE_[A-F0-9]{12}\]", sent_prompt)
-    assert re.search(r"\[EMAIL_[A-F0-9]{12}\]", sent_prompt)
     assert '012-3456789' not in sent_prompt
     assert 'alice@example.com' not in sent_prompt
+    assert sent_prompt != raw_prompt
 
 
 def test_generate_accepts_legacy_sanitized_prompt_field(client, monkeypatch):

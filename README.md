@@ -51,6 +51,61 @@ Artifacts:
 - `reports/comparative/comparative_study.json`
 - `reports/comparative/comparative_study.md`
 
+## Functionality-First Upgrades (Current)
+
+### 1) Live adaptive redaction router
+
+Runtime requests (`/generate`, `/client/chat`) now support adaptive method
+selection before policy evaluation.
+
+Environment toggle:
+
+```bash
+PRIVACY_RUNTIME_ROUTER=adaptive   # default
+# PRIVACY_RUNTIME_ROUTER=legacy   # force old tokenize_prompt_for_llm behavior
+```
+
+### 2) Research-grade evaluator
+
+`/privacy/comparison` now includes per-method:
+- micro precision/recall/F1
+- macro F1
+- per-entity confusion metrics (TP/FP/FN) for id/phone/email/name/location/org
+
+### 3) Vault retention + purge controls
+
+Retention sweep can be enabled via:
+
+```bash
+PII_VAULT_RETENTION_HOURS=168
+PII_VAULT_RETENTION_SWEEP_SECONDS=300
+```
+
+Admin endpoints:
+- `GET /privacy/vault/stats`
+- `POST /privacy/vault/purge` (body: `{"retention_hours": 168}`)
+
+### 4) Adversarial stress module
+
+Admin endpoint:
+
+```bash
+curl -H 'Authorization: Bearer <token>' \
+  'http://localhost:5100/privacy/adversarial?dataset_version=v3&split=test&max_cases=20&max_variants=3'
+```
+
+### 5) Viva evidence exporter
+
+```bash
+python3 scripts/export_viva_pack.py
+```
+
+Generated artifacts:
+- `reports/viva/viva_pack.json`
+- `reports/viva/viva_pack.md`
+- `reports/viva/method_leaderboard.csv`
+- `reports/viva/adversarial_cases.csv`
+
 ## Quick Deploy (Production Profile)
 
 1. Create runtime secrets:

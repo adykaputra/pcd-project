@@ -12,7 +12,7 @@ import hmac
 import os
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
 from typing import Optional
@@ -176,8 +176,69 @@ class PIIVault:
             conn.close()
         return value
 
+    def purge_expired_entries(self, retention_hours: int, now: Optional[datetime] = None) -> dict:
+        """Delete old vault entries based on retention policy."""
+        hours = int(retention_hours or 0)
+        if hours <= 0:
+            return {"retention_hours": hours, "deleted_entries": 0, "status": "disabled"}
+
+        reference = now or datetime.utcnow()
+        cutoff = reference - timedelta(hours=hours)
+        with self._lock:
+            conn = self._connect()
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM vault_entries")
+            before_count = int(cur.fetchone()[0] or 0)
+            cur.execute(
+                """
+                DELETE FROM vault_entries
+                WHERE created_at < ?
+                  AND (last_accessed_at IS NULL OR last_accessed_at < ?)
+                """,
+                (cutoff, cutoff),
+            )
+            deleted = int(cur.rowcount or 0)
+            conn.commit()
+            cur.execute("SELECT COUNT(*) FROM vault_entries")
+            after_count = int(cur.fetchone()[0] or 0)
+            conn.close()
+        return {
+            "status": "ok",
+            "retention_hours": hours,
+            "cutoff_ts": cutoff.isoformat() + "Z",
+            "deleted_entries": deleted,
+            "before_count": before_count,
+            "after_count": after_count,
+        }
+
+    def stats(self) -> dict:
+        """Return basic vault utilization summary."""
+        def _fmt_ts(value):
+            if value is None:
+                return None
+            if hasattr(value, "isoformat"):
+                return value.isoformat() + "Z"
+            return str(value)
+
+        with self._lock:
+            conn = self._connect()
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*), MIN(created_at), MAX(created_at) FROM vault_entries")
+            row = cur.fetchone()
+            cur.execute("SELECT pii_type, COUNT(*) FROM vault_entries GROUP BY pii_type")
+            by_type_rows = cur.fetchall()
+            conn.close()
+        by_type = {str(item[0]): int(item[1] or 0) for item in by_type_rows}
+        return {
+            "entries": int(row[0] or 0) if row else 0,
+            "oldest_entry_ts": _fmt_ts(row[1]) if row else None,
+            "newest_entry_ts": _fmt_ts(row[2]) if row else None,
+            "by_type": by_type,
+        }
+
 
 _VAULT: Optional[PIIVault] = None
+_LAST_RETENTION_SWEEP_TS: Optional[datetime] = None
 
 
 def get_vault() -> PIIVault:
@@ -185,3 +246,20 @@ def get_vault() -> PIIVault:
     if _VAULT is None:
         _VAULT = PIIVault()
     return _VAULT
+
+
+def maybe_sweep_retention() -> Optional[dict]:
+    """Run retention purge periodically when policy env is enabled."""
+    global _LAST_RETENTION_SWEEP_TS
+    retention_hours = int(os.getenv("PII_VAULT_RETENTION_HOURS", "0") or "0")
+    if retention_hours <= 0:
+        return None
+
+    sweep_interval_seconds = int(os.getenv("PII_VAULT_RETENTION_SWEEP_SECONDS", "300") or "300")
+    now = datetime.utcnow()
+    if _LAST_RETENTION_SWEEP_TS and (now - _LAST_RETENTION_SWEEP_TS).total_seconds() < sweep_interval_seconds:
+        return None
+
+    result = get_vault().purge_expired_entries(retention_hours=retention_hours, now=now)
+    _LAST_RETENTION_SWEEP_TS = now
+    return result

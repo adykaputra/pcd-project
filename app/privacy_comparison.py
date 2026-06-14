@@ -40,6 +40,53 @@ _PRESIDIO_READY: Optional[bool] = None
 _PRESIDIO_ANALYZER = None
 _PRESIDIO_ANONYMIZER = None
 _PRESIDIO_ERROR = ""
+ENTITY_TYPES = ["id", "phone", "email", "name", "location", "organization"]
+METHOD_TIE_PRIORITY = ["llm_validator", "keyword_vault", "ner", "presidio", "basic_regex"]
+
+
+def _canonical_entity_type(raw: str) -> str:
+    key = str(raw or "").strip().lower()
+    mapping = {
+        "id": "id",
+        "malaysian_ic": "id",
+        "phone": "phone",
+        "phone_number": "phone",
+        "email": "email",
+        "emails": "email",
+        "name": "name",
+        "person": "name",
+        "per": "name",
+        "ner_person": "name",
+        "location": "location",
+        "loc": "location",
+        "gpe": "location",
+        "ner_location": "location",
+        "organization": "organization",
+        "org": "organization",
+        "ner_organization": "organization",
+    }
+    return mapping.get(key, key)
+
+
+def _normalize_method_counts(counts: Dict[str, Any]) -> Dict[str, int]:
+    normalized = {entity: 0 for entity in ENTITY_TYPES}
+    for key, value in (counts or {}).items():
+        entity = _canonical_entity_type(key)
+        if entity in normalized:
+            try:
+                normalized[entity] += int(value or 0)
+            except Exception:
+                continue
+    return normalized
+
+
+def _targets_to_type_counts(targets: List[Dict[str, str]]) -> Dict[str, int]:
+    totals = {entity: 0 for entity in ENTITY_TYPES}
+    for target in targets:
+        entity = _canonical_entity_type(target.get("type", "unknown"))
+        if entity in totals:
+            totals[entity] += 1
+    return totals
 
 
 def _utility_score(original: str, redacted: str) -> float:
@@ -137,10 +184,15 @@ def _resolve_case_targets(case: Dict[str, Any]) -> List[Dict[str, str]]:
     return _infer_targets_from_prompt(str(case.get("prompt", "")), bool(case.get("contains_pii")))
 
 
+def resolve_case_targets(case: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Public helper to obtain normalized target list for a benchmark case."""
+    return _resolve_case_targets(case)
+
+
 def _method_basic_regex(text: str) -> Dict[str, Any]:
-    redacted, count_id = _replace_pattern(text, MALAYSIAN_IC_RE, "[REGEX_ID]")
-    redacted, count_phone = _replace_pattern(redacted, PHONE_RE, "[REGEX_PHONE]")
-    redacted, count_email = _replace_pattern(redacted, EMAIL_RE, "[REGEX_EMAIL]")
+    redacted, count_id = _vault_replace_pattern(text, MALAYSIAN_IC_RE, "id")
+    redacted, count_phone = _vault_replace_pattern(redacted, PHONE_RE, "phone")
+    redacted, count_email = _vault_replace_pattern(redacted, EMAIL_RE, "email")
     return {
         "redacted_text": redacted,
         "counts": {"id": count_id, "phone": count_phone, "email": count_email},
@@ -247,6 +299,7 @@ def _method_ner(text: str) -> Dict[str, Any]:
     entities = ner_result.get("entities", [])
     redacted = text
     counts = {"person": 0, "organization": 0, "location": 0}
+    vault = get_vault()
     # Replace from end to start to avoid offset drift.
     sorted_entities = sorted(
         [e for e in entities if isinstance(e, dict)],
@@ -259,14 +312,19 @@ def _method_ner(text: str) -> Dict[str, Any]:
         if end <= start or end > len(redacted):
             continue
         label = str(entity.get("label", "ENTITY")).upper()
-        placeholder = "[NER_" + label + "]"
-        redacted = redacted[:start] + placeholder + redacted[end:]
+        entity_text = redacted[start:end]
         if label in {"PERSON", "PER"}:
+            placeholder = vault.get_or_create_token(entity_text, "name").token
             counts["person"] += 1
         elif label in {"ORG", "ORGANIZATION"}:
+            placeholder = vault.get_or_create_token(entity_text, "organization").token
             counts["organization"] += 1
         elif label in {"GPE", "LOC", "LOCATION"}:
+            placeholder = vault.get_or_create_token(entity_text, "location").token
             counts["location"] += 1
+        else:
+            placeholder = "[NER_" + label + "]"
+        redacted = redacted[:start] + placeholder + redacted[end:]
     return {
         "redacted_text": redacted,
         "counts": counts,
@@ -282,41 +340,41 @@ def _method_llm_validator(text: str) -> Dict[str, Any]:
     redacted = text
     counts: Dict[str, int] = {"id": 0, "phone": 0, "email": 0, "name": 0, "location": 0}
 
-    redacted, n = _replace_pattern(redacted, MALAYSIAN_IC_RE, "[SAFE_ID]")
+    redacted, n = _vault_replace_pattern(redacted, MALAYSIAN_IC_RE, "id")
     counts["id"] += n
-    redacted, n = _replace_pattern(redacted, SPACED_ID_RE, "[SAFE_ID]")
+    redacted, n = _vault_replace_pattern(redacted, SPACED_ID_RE, "id")
     counts["id"] += n
-    redacted, n = _replace_pattern(redacted, PHONE_RE, "[SAFE_PHONE]")
+    redacted, n = _vault_replace_pattern(redacted, PHONE_RE, "phone")
     counts["phone"] += n
-    redacted, n = _replace_pattern(redacted, SPACED_PHONE_RE, "[SAFE_PHONE]")
+    redacted, n = _vault_replace_pattern(redacted, SPACED_PHONE_RE, "phone")
     counts["phone"] += n
-    redacted, n = _replace_pattern(redacted, EMAIL_RE, "[SAFE_EMAIL]")
+    redacted, n = _vault_replace_pattern(redacted, EMAIL_RE, "email")
     counts["email"] += n
-    redacted, n = _replace_pattern(redacted, OBFUSCATED_EMAIL_RE, "[SAFE_EMAIL]")
+    redacted, n = _vault_replace_pattern(redacted, OBFUSCATED_EMAIL_RE, "email")
     counts["email"] += n
 
-    for name in sorted(COMMON_NAMES, key=len, reverse=True):
-        redacted, n = _replace_literal_ci(redacted, name, "[SAFE_NAME]")
-        counts["name"] += n
-    for location in sorted(COMMON_LOCATIONS, key=len, reverse=True):
-        redacted, n = _replace_literal_ci(redacted, location, "[SAFE_LOCATION]")
-        counts["location"] += n
+    redacted, n = _vault_replace_dictionary(redacted, COMMON_NAMES, "name")
+    counts["name"] += n
+    redacted, n = _vault_replace_dictionary(redacted, COMMON_LOCATIONS, "location")
+    counts["location"] += n
 
     ner = detect_named_entities(redacted)
+    vault = get_vault()
     for entity in sorted(ner.get("entities", []), key=lambda e: int(e.get("start", 0)), reverse=True):
         start = int(entity.get("start", 0))
         end = int(entity.get("end", 0))
         if end <= start or end > len(redacted):
             continue
         label = str(entity.get("label", "ENTITY")).upper()
+        value = redacted[start:end]
         if label in {"PERSON", "PER"}:
-            placeholder = "[SAFE_NAME]"
+            placeholder = vault.get_or_create_token(value, "name").token
             counts["name"] += 1
         elif label in {"GPE", "LOC", "LOCATION"}:
-            placeholder = "[SAFE_LOCATION]"
+            placeholder = vault.get_or_create_token(value, "location").token
             counts["location"] += 1
         elif label in {"ORG", "ORGANIZATION"}:
-            placeholder = "[SAFE_ORG]"
+            placeholder = vault.get_or_create_token(value, "organization").token
         else:
             placeholder = "[SAFE_ENTITY]"
         redacted = redacted[:start] + placeholder + redacted[end:]
@@ -401,6 +459,10 @@ def run_privacy_comparison(
             "total_utility": 0.0,
             "total_latency_ms": 0.0,
             "total_score": 0.0,
+            "entity_confusion": {
+                entity: {"tp": 0, "fp": 0, "fn": 0}
+                for entity in ENTITY_TYPES
+            },
         }
         for method_id in enabled
     }
@@ -410,11 +472,10 @@ def run_privacy_comparison(
     adaptive_recall_sum = 0.0
     adaptive_utility_sum = 0.0
     adaptive_method_counts = {method_id: 0 for method_id in enabled}
-    tie_priority = ["llm_validator", "keyword_vault", "ner", "presidio", "basic_regex"]
-
     for case in benchmark_cases:
         prompt = str(case.get("prompt", ""))
         targets = _resolve_case_targets(case)
+        target_type_counts = _targets_to_type_counts(targets)
         method_runs: Dict[str, Dict[str, Any]] = {}
 
         for method_id in enabled:
@@ -424,11 +485,12 @@ def run_privacy_comparison(
             elapsed_ms = (time.perf_counter() - start) * 1000.0
             redacted = str(output.get("redacted_text", prompt))
             metrics = _evaluate_method_output(prompt, redacted, targets, elapsed_ms)
+            normalized_counts = _normalize_method_counts(output.get("counts", {}))
             method_runs[method_id] = {
                 "method_id": method_id,
                 "method_name": METHOD_REGISTRY[method_id]["name"],
                 "redacted_text": redacted,
-                "counts": output.get("counts", {}),
+                "counts": normalized_counts,
                 "metadata": output.get("metadata", {}),
                 **metrics,
             }
@@ -447,7 +509,10 @@ def run_privacy_comparison(
 
         winner = max(
             method_runs.values(),
-            key=lambda item: (item["composite_score"], -tie_priority.index(item["method_id"])),
+            key=lambda item: (
+                item["composite_score"],
+                -METHOD_TIE_PRIORITY.index(item["method_id"]) if item["method_id"] in METHOD_TIE_PRIORITY else -999,
+            ),
         )
         winner_id = winner["method_id"]
         adaptive_method_counts[winner_id] += 1
@@ -467,6 +532,17 @@ def run_privacy_comparison(
                 stats["leak_cases"] += 1
             if method_id == winner_id:
                 stats["wins"] += 1
+            confusion = stats["entity_confusion"]
+            predicted_type_counts = output.get("counts", {})
+            for entity in ENTITY_TYPES:
+                true_count = int(target_type_counts.get(entity, 0))
+                pred_count = int(predicted_type_counts.get(entity, 0))
+                tp = min(true_count, pred_count)
+                fp = max(pred_count - true_count, 0)
+                fn = max(true_count - pred_count, 0)
+                confusion[entity]["tp"] += tp
+                confusion[entity]["fp"] += fp
+                confusion[entity]["fn"] += fn
 
         case_results.append(
             {
@@ -488,6 +564,39 @@ def run_privacy_comparison(
     for method_id in enabled:
         stats = method_stats[method_id]
         cases = max(int(stats["cases"]), 1)
+        entity_metrics = {}
+        micro_tp = micro_fp = micro_fn = 0
+        f1_values = []
+        for entity in ENTITY_TYPES:
+            confusion = stats["entity_confusion"][entity]
+            tp = int(confusion["tp"])
+            fp = int(confusion["fp"])
+            fn = int(confusion["fn"])
+            micro_tp += tp
+            micro_fp += fp
+            micro_fn += fn
+            precision = (tp / (tp + fp)) if (tp + fp) else 1.0
+            recall = (tp / (tp + fn)) if (tp + fn) else 1.0
+            f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+            entity_metrics[entity] = {
+                "tp": tp,
+                "fp": fp,
+                "fn": fn,
+                "precision": round(precision, 3),
+                "recall": round(recall, 3),
+                "f1": round(f1, 3),
+            }
+            f1_values.append(f1)
+
+        micro_precision = (micro_tp / (micro_tp + micro_fp)) if (micro_tp + micro_fp) else 1.0
+        micro_recall = (micro_tp / (micro_tp + micro_fn)) if (micro_tp + micro_fn) else 1.0
+        micro_f1 = (
+            (2 * micro_precision * micro_recall / (micro_precision + micro_recall))
+            if (micro_precision + micro_recall)
+            else 0.0
+        )
+        macro_f1 = (sum(f1_values) / len(f1_values)) if f1_values else 0.0
+
         method_metrics.append(
             {
                 "method_id": method_id,
@@ -500,6 +609,11 @@ def run_privacy_comparison(
                 "avg_utility_score": round(stats["total_utility"] / cases, 3),
                 "avg_latency_ms": round(stats["total_latency_ms"] / cases, 3),
                 "composite_score": round(stats["total_score"] / cases, 3),
+                "micro_precision": round(micro_precision, 3),
+                "micro_recall": round(micro_recall, 3),
+                "micro_f1": round(micro_f1, 3),
+                "macro_f1": round(macro_f1, 3),
+                "entity_metrics": entity_metrics,
             }
         )
 
@@ -513,11 +627,132 @@ def run_privacy_comparison(
         "selection_coverage": round(sum(adaptive_method_counts.values()) / total_cases, 3),
     }
 
+    evaluation_protocol = {
+        "entity_types": ENTITY_TYPES,
+        "metrics": [
+            "target_recall",
+            "core_pii_leak_rate",
+            "avg_utility_score",
+            "avg_latency_ms",
+            "micro_precision",
+            "micro_recall",
+            "micro_f1",
+            "macro_f1",
+        ],
+        "composite_formula": "0.55*target_recall + 0.20*leak_free + 0.15*utility + 0.10*latency_component",
+    }
+
     return {
         "dataset_version": dataset_version,
         "split": split,
         "total_cases": len(benchmark_cases),
+        "evaluation_protocol": evaluation_protocol,
         "method_metrics": method_metrics,
         "adaptive_summary": adaptive_summary,
         "cases": case_results if include_cases else [],
+    }
+
+
+def _runtime_has_pii_signals(prompt: str) -> bool:
+    if not prompt:
+        return False
+    if (
+        MALAYSIAN_IC_RE.search(prompt)
+        or PHONE_RE.search(prompt)
+        or EMAIL_RE.search(prompt)
+        or OBFUSCATED_EMAIL_RE.search(prompt)
+        or SPACED_PHONE_RE.search(prompt)
+        or SPACED_ID_RE.search(prompt)
+    ):
+        return True
+    entities = detect_named_entities(prompt).get("entities", [])
+    return len(entities) > 0
+
+
+def route_prompt_adaptive(prompt: str, methods: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Route a live prompt through multiple methods and select best runtime output."""
+    enabled = [m for m in (methods or list(METHOD_REGISTRY.keys())) if m in METHOD_REGISTRY]
+    if not enabled:
+        enabled = list(METHOD_REGISTRY.keys())
+
+    prompt = str(prompt or "")
+    has_pii_signals = _runtime_has_pii_signals(prompt)
+    candidates: List[Dict[str, Any]] = []
+    max_latency_ms = 1.0
+
+    for method_id in enabled:
+        runner = METHOD_REGISTRY[method_id]["runner"]
+        start = time.perf_counter()
+        output = runner(prompt)
+        latency_ms = (time.perf_counter() - start) * 1000.0
+        max_latency_ms = max(max_latency_ms, latency_ms)
+
+        redacted = str(output.get("redacted_text", prompt))
+        counts = _normalize_method_counts(output.get("counts", {}))
+        residual = detect_pii_counts(redacted)
+        residual_total = int(sum(int(v or 0) for v in residual.values()))
+        predicted_total = int(sum(counts.values()))
+        utility = _utility_score(prompt, redacted)
+        redaction_applied = redacted != prompt
+
+        candidates.append(
+            {
+                "method_id": method_id,
+                "method_name": METHOD_REGISTRY[method_id]["name"],
+                "redacted_prompt": redacted,
+                "counts": counts,
+                "metadata": output.get("metadata", {}),
+                "latency_ms": round(latency_ms, 3),
+                "residual_core_counts": residual,
+                "residual_core_total": residual_total,
+                "predicted_total": predicted_total,
+                "utility_score": utility,
+                "redaction_applied": redaction_applied,
+            }
+        )
+
+    for candidate in candidates:
+        latency_component = 1.0 - (float(candidate["latency_ms"]) / max_latency_ms)
+        leak_free = 1.0 if candidate["residual_core_total"] == 0 else 0.0
+        expected_detection = 1.0 if (not has_pii_signals or candidate["redaction_applied"]) else 0.0
+        count_signal = 1.0 if (not has_pii_signals or candidate["predicted_total"] > 0) else 0.0
+        score = (
+            0.45 * leak_free
+            + 0.2 * float(candidate["utility_score"])
+            + 0.15 * expected_detection
+            + 0.1 * count_signal
+            + 0.1 * latency_component
+        )
+        candidate["runtime_score"] = round(score, 3)
+
+    selected = max(
+        candidates,
+        key=lambda item: (
+            item["runtime_score"],
+            -METHOD_TIE_PRIORITY.index(item["method_id"]) if item["method_id"] in METHOD_TIE_PRIORITY else -999,
+        ),
+    )
+
+    return {
+        "mode": "adaptive",
+        "selected_method_id": selected["method_id"],
+        "selected_method_name": selected["method_name"],
+        "redacted_prompt": selected["redacted_prompt"],
+        "token_counts": selected["counts"],
+        "remaining_pii_counts": selected["residual_core_counts"],
+        "redaction_applied": selected["redaction_applied"],
+        "has_pii_signals": has_pii_signals,
+        "candidates": [
+            {
+                "method_id": item["method_id"],
+                "method_name": item["method_name"],
+                "runtime_score": item["runtime_score"],
+                "latency_ms": item["latency_ms"],
+                "residual_core_total": item["residual_core_total"],
+                "predicted_total": item["predicted_total"],
+                "utility_score": item["utility_score"],
+            }
+            for item in sorted(candidates, key=lambda x: x["runtime_score"], reverse=True)
+        ],
+        "selected_metadata": selected.get("metadata", {}),
     }

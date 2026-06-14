@@ -13,7 +13,9 @@ from app.privacy_autotune import recommend_thresholds_from_audit
 from app.privacy_policy_config import save_policy_thresholds, get_policy_thresholds
 from app.privacy_benchmark_history import get_benchmark_history_manager
 from app.privacy_benchmark_dataset import list_dataset_versions
-from app.privacy_comparison import run_privacy_comparison
+from app.privacy_comparison import run_privacy_comparison, route_prompt_adaptive
+from app.privacy_adversarial import run_adversarial_stress
+from app.privacy_vault import get_vault, maybe_sweep_retention
 
 bp = Blueprint('module3', __name__)
 
@@ -135,8 +137,46 @@ def _run_firewall_pipeline(
     if requested_provider == "mock" and any(tag in requested_model for tag in ("llama", "mistral", "qwen", "gemma")):
         requested_provider = "ollama"
 
-    tokenization = tokenize_prompt_for_llm(inbound_prompt)
-    tokenized_prompt = tokenization["tokenized_prompt"]
+    retention_result = maybe_sweep_retention()
+    if retention_result and int(retention_result.get("deleted_entries", 0)) > 0:
+        from flask import g
+        current_app.logger.info(
+            "[PRIVACY_VAULT] Retention sweep purged old tokens",
+            extra={
+                "event_type": "PII_VAULT_PURGED",
+                "request_id": getattr(g, "request_id", None),
+                "user_role": getattr(g, "user_role", None),
+                "endpoint": request.path,
+                "metadata": retention_result,
+            },
+        )
+
+    router_mode = str(os.getenv("PRIVACY_RUNTIME_ROUTER", "adaptive")).strip().lower()
+    routing_details = {}
+    if router_mode == "adaptive":
+        routed = route_prompt_adaptive(inbound_prompt)
+        tokenized_prompt = routed["redacted_prompt"]
+        tokenization = {
+            "tokenized_prompt": tokenized_prompt,
+            "had_pii": bool(routed.get("redaction_applied", tokenized_prompt != inbound_prompt)),
+            "token_counts": routed.get("token_counts", {}),
+            "remaining_pii_counts": routed.get("remaining_pii_counts", {}),
+            "ner_backend": (routed.get("selected_metadata") or {}).get("backend"),
+            "ner_entities_detected": int((routed.get("selected_metadata") or {}).get("entities_detected", 0) or 0),
+            "router": {
+                "mode": "adaptive",
+                "selected_method_id": routed.get("selected_method_id"),
+                "selected_method_name": routed.get("selected_method_name"),
+                "has_pii_signals": routed.get("has_pii_signals"),
+                "candidates": routed.get("candidates", []),
+            },
+        }
+        routing_details = tokenization["router"]
+    else:
+        tokenization = tokenize_prompt_for_llm(inbound_prompt)
+        tokenized_prompt = tokenization["tokenized_prompt"]
+        routing_details = {"mode": "legacy", "selected_method_id": "keyword_vault"}
+
     remaining = tokenization["remaining_pii_counts"]
     if any((remaining or {}).values()):
         from flask import g
@@ -201,6 +241,10 @@ def _run_firewall_pipeline(
         "tokenized_prompt_full": tokenized_prompt[:4000],
         "tokenized_prompt_preview": (tokenized_prompt[:220] + "...") if len(tokenized_prompt) > 220 else tokenized_prompt,
         "original_prompt_sha256": hashlib.sha256(inbound_prompt.encode("utf-8")).hexdigest()[:16],
+        "router_mode": routing_details.get("mode"),
+        "selected_method_id": routing_details.get("selected_method_id"),
+        "selected_method_name": routing_details.get("selected_method_name"),
+        "router_candidates": routing_details.get("candidates", [])[:5],
         "user_identity": getattr(g, "user_identity", None),
         "user_name": getattr(g, "user_name", None),
         "session_id": getattr(g, "session_id", None),
@@ -223,6 +267,7 @@ def _run_firewall_pipeline(
                 "token_counts": tokenization["token_counts"],
                 "risk_assessment": risk,
                 "risk_score": risk.get("risk_score"),
+                "router": routing_details,
                 "dispatch_proof": redaction_proof,
             },
         },
@@ -280,6 +325,7 @@ def _run_firewall_pipeline(
             "token_counts": tokenization["token_counts"],
             "ner_backend": tokenization.get("ner_backend"),
             "ner_entities_detected": tokenization.get("ner_entities_detected"),
+            "router": tokenization.get("router", routing_details),
         },
         "dispatch_proof": redaction_proof,
         "risk_assessment": risk,
@@ -470,6 +516,66 @@ def privacy_comparison():
         return jsonify({"status": "denied", "message": f"Unknown benchmark dataset version: {dataset_version}"}), 400
 
     return jsonify({"status": "ok", "comparison": comparison}), 200
+
+
+@bp.route('/privacy/adversarial', methods=['GET'])
+def privacy_adversarial():
+    """Admin-only endpoint for adversarial robustness stress testing."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+
+    dataset_version = request.args.get("dataset_version", "v3")
+    split = request.args.get("split", "test")
+    max_cases = int(request.args.get("max_cases", 20))
+    max_variants = int(request.args.get("max_variants", 3))
+    include_cases = str(request.args.get("include_cases", "0")).lower() in {"1", "true", "yes"}
+    try:
+        stress = run_adversarial_stress(
+            dataset_version=dataset_version,
+            split=split,
+            max_cases=max_cases,
+            max_variants=max_variants,
+        )
+    except FileNotFoundError:
+        return jsonify({"status": "denied", "message": f"Unknown benchmark dataset version: {dataset_version}"}), 400
+
+    if not include_cases:
+        stress = {**stress, "cases": []}
+    return jsonify({"status": "ok", "adversarial": stress}), 200
+
+
+@bp.route('/privacy/vault/purge', methods=['POST'])
+def privacy_vault_purge():
+    """Admin-only endpoint to purge vault entries by retention hours."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    retention_hours = int(data.get("retention_hours", os.getenv("PII_VAULT_RETENTION_HOURS", "0") or "0"))
+    result = get_vault().purge_expired_entries(retention_hours=retention_hours)
+
+    from flask import g
+    current_app.logger.info(
+        "[PRIVACY_VAULT] Manual purge executed",
+        extra={
+            "event_type": "PII_VAULT_PURGED",
+            "request_id": getattr(g, "request_id", None),
+            "user_role": getattr(g, "user_role", None),
+            "endpoint": request.path,
+            "metadata": result,
+        },
+    )
+    return jsonify({"status": "ok", "purge": result}), 200
+
+
+@bp.route('/privacy/vault/stats', methods=['GET'])
+def privacy_vault_stats():
+    """Admin-only endpoint to inspect vault retention/utilization stats."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+    stats = get_vault().stats()
+    retention_hours = int(os.getenv("PII_VAULT_RETENTION_HOURS", "0") or "0")
+    return jsonify({"status": "ok", "retention_hours": retention_hours, "vault": stats}), 200
 
 
 @bp.route('/privacy/calibrate', methods=['GET'])
