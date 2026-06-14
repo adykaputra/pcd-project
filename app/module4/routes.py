@@ -48,6 +48,18 @@ def summary():
     return jsonify({"status": "ok", "summary": result}), 200
 
 
+@bp.route('/live', methods=['GET'])
+def live():
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+
+    hours = max(1, int(request.args.get('hours', 24)))
+    bucket_minutes = max(5, int(request.args.get('bucket_minutes', 60)))
+    since = datetime.utcnow() - timedelta(hours=hours)
+    telemetry = get_manager().live_telemetry(since=since, bucket_minutes=bucket_minutes)
+    return jsonify({"status": "ok", "live": telemetry}), 200
+
+
 @bp.route('/dashboard', methods=['GET'])
 def dashboard():
     if not _is_admin_request(request):

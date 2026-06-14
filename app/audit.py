@@ -2,7 +2,7 @@
 import sqlite3
 import json
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pathlib import Path
 
 DB_PATH = Path("data/audit_log.db")
@@ -257,6 +257,88 @@ class AuditManager:
             "pii_redacted_last_24h": {"malaysian_ic": ids, "emails": emails},
             "frequent_forbidden_intents": frequent_intents,
             "privacy_policy_actions_last_24h": policy_counts,
+        }
+
+    def live_telemetry(self, since: Optional[datetime] = None, bucket_minutes: int = 60) -> Dict[str, Any]:
+        """Return live action telemetry for dashboard analytics."""
+        since = since or (datetime.utcnow() - timedelta(hours=24))
+        bucket_minutes = max(5, int(bucket_minutes))
+        self._init_db()
+        conn = self._connect()
+        cur = conn.cursor()
+        tracked_events = (
+            "PII_TOKENIZED",
+            "PRIVACY_POLICY_CHALLENGE",
+            "PRIVACY_POLICY_BLOCK",
+            "SECURITY_DENIED",
+        )
+        cur.execute(
+            """
+            SELECT ts, event_type
+            FROM audit_events
+            WHERE ts >= ? AND event_type IN (?, ?, ?, ?)
+            ORDER BY ts ASC
+            """,
+            (since, *tracked_events),
+        )
+        rows = cur.fetchall()
+        conn.close()
+
+        def _bucket_start(value: datetime) -> datetime:
+            minute = (value.minute // bucket_minutes) * bucket_minutes
+            return value.replace(minute=minute, second=0, microsecond=0)
+
+        allow_events = {"PII_TOKENIZED"}
+        challenge_events = {"PRIVACY_POLICY_CHALLENGE"}
+        block_events = {"PRIVACY_POLICY_BLOCK", "SECURITY_DENIED"}
+
+        totals = {"allow": 0, "challenge": 0, "block": 0}
+        buckets: Dict[str, Dict[str, Any]] = {}
+
+        for row in rows:
+            ts_value = row["ts"]
+            if isinstance(ts_value, str):
+                try:
+                    ts_value = datetime.fromisoformat(ts_value.replace("Z", "+00:00")).replace(tzinfo=None)
+                except Exception:
+                    ts_value = datetime.utcnow()
+            elif not isinstance(ts_value, datetime):
+                ts_value = datetime.utcnow()
+
+            event_type = str(row["event_type"] or "")
+            if event_type in allow_events:
+                action = "allow"
+            elif event_type in challenge_events:
+                action = "challenge"
+            elif event_type in block_events:
+                action = "block"
+            else:
+                continue
+
+            totals[action] += 1
+            bucket_ts = _bucket_start(ts_value).isoformat() + "Z"
+            if bucket_ts not in buckets:
+                buckets[bucket_ts] = {"ts": bucket_ts, "allow": 0, "challenge": 0, "block": 0, "total": 0}
+            buckets[bucket_ts][action] += 1
+            buckets[bucket_ts]["total"] += 1
+
+        timeline: List[Dict[str, Any]] = [buckets[key] for key in sorted(buckets.keys())]
+        total_requests = totals["allow"] + totals["challenge"] + totals["block"]
+        allow_rate = (totals["allow"] / total_requests) if total_requests else 0.0
+        challenge_rate = (totals["challenge"] / total_requests) if total_requests else 0.0
+        block_rate = (totals["block"] / total_requests) if total_requests else 0.0
+
+        return {
+            "window_hours": int(max(1, round((datetime.utcnow() - since).total_seconds() / 3600))),
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "policy_action_counts": totals,
+            "totals": {
+                "total_requests": total_requests,
+                "allow_rate": round(allow_rate, 3),
+                "challenge_rate": round(challenge_rate, 3),
+                "block_rate": round(block_rate, 3),
+            },
+            "timeline": timeline,
         }
 
 

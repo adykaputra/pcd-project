@@ -25,6 +25,7 @@
   const qualityCards = document.getElementById("quality-cards");
   const policyBars = document.getElementById("policy-bars");
   const trendChart = document.getElementById("trend-chart");
+  const liveTelemetryStatus = document.getElementById("live-telemetry-status");
   const toastNode = document.getElementById("toast");
   const viewButtons = Array.from(document.querySelectorAll(".menu-item[data-view]"));
   const sortableHeaders = Array.from(document.querySelectorAll("th.sortable[data-sort]"));
@@ -177,21 +178,15 @@
     }
   }
 
-  function extractMetrics(payload) {
-    return payload?.benchmark?.metrics || payload?.metrics || payload?.overall?.metrics || null;
-  }
-
-  function renderQualityCards(metrics) {
-    if (!qualityCards || !metrics) return;
-    const leakPct = (asNumber(metrics.core_pii_leak_rate) * 100).toFixed(1);
-    const utilityPct = (asNumber(metrics.avg_utility_score, 1) * 100).toFixed(1);
-    const detectionPct = (asNumber(metrics.pii_detection_rate) * 100).toFixed(1);
-    const accuracyPct = (asNumber(metrics.expected_action_accuracy) * 100).toFixed(1);
+  function renderQualityCards(live) {
+    if (!qualityCards || !live) return;
+    const totals = live.totals || {};
+    const counts = live.policy_action_counts || {};
     const cards = [
-      { label: "Leak Rate", value: `${leakPct}%` },
-      { label: "Detection", value: `${detectionPct}%` },
-      { label: "Utility", value: `${utilityPct}%` },
-      { label: "Policy Accuracy", value: `${accuracyPct}%` },
+      { label: "Live Requests (24h)", value: String(totals.total_requests ?? 0) },
+      { label: "Allow Rate", value: `${(asNumber(totals.allow_rate) * 100).toFixed(1)}%` },
+      { label: "Challenge Rate", value: `${(asNumber(totals.challenge_rate) * 100).toFixed(1)}%` },
+      { label: "Block Count", value: String(counts.block ?? 0) },
     ];
     qualityCards.innerHTML = cards
       .map(
@@ -205,9 +200,9 @@
       .join("");
   }
 
-  function renderPolicyBars(metrics) {
-    if (!policyBars || !metrics) return;
-    const counts = metrics.policy_action_counts || {};
+  function renderPolicyBars(live) {
+    if (!policyBars || !live) return;
+    const counts = live.policy_action_counts || {};
     const allow = asNumber(counts.allow);
     const challenge = asNumber(counts.challenge);
     const block = asNumber(counts.block);
@@ -234,18 +229,64 @@
   function renderTrendChart(history) {
     if (!trendChart || !Array.isArray(history) || history.length === 0) {
       if (trendChart) {
-        trendChart.innerHTML = `<text x="20" y="28" fill="#5f6f89" font-size="13">No benchmark history yet. Run Benchmark to generate trend data.</text>`;
+        trendChart.innerHTML = `<text x="20" y="28" fill="#5f6f89" font-size="13">No live policy events yet. Send prompts to generate telemetry.</text>`;
       }
       return;
     }
 
     const points = [...history].reverse();
+    const isLiveTimeline = Object.prototype.hasOwnProperty.call(points[0] || {}, "allow");
     const width = 760;
     const height = 210;
     const padX = 45;
     const padY = 26;
     const innerW = width - padX * 2;
     const innerH = height - padY * 2;
+
+    if (isLiveTimeline) {
+      const maxCount = Math.max(
+        1,
+        ...points.map((p) => Math.max(asNumber(p.allow), asNumber(p.challenge), asNumber(p.block)))
+      );
+      const projectX = (idx) => (points.length === 1 ? width / 2 : padX + (idx / (points.length - 1)) * innerW);
+      const projectY = (value) => padY + (1 - asNumber(value) / maxCount) * innerH;
+      const buildPath = (key) =>
+        points
+          .map((point, idx) => `${idx === 0 ? "M" : "L"} ${projectX(idx).toFixed(2)} ${projectY(point[key]).toFixed(2)}`)
+          .join(" ");
+
+      const allowPath = buildPath("allow");
+      const challengePath = buildPath("challenge");
+      const blockPath = buildPath("block");
+
+      const dots = points
+        .map((point, idx) => {
+          const x = projectX(idx);
+          const yAllow = projectY(point.allow);
+          const yChallenge = projectY(point.challenge);
+          const yBlock = projectY(point.block);
+          return `
+            <circle cx="${x.toFixed(2)}" cy="${yAllow.toFixed(2)}" r="2.8" fill="#10b981"><title>${point.ts}: allow ${point.allow}</title></circle>
+            <circle cx="${x.toFixed(2)}" cy="${yChallenge.toFixed(2)}" r="2.8" fill="#f59e0b"><title>${point.ts}: challenge ${point.challenge}</title></circle>
+            <circle cx="${x.toFixed(2)}" cy="${yBlock.toFixed(2)}" r="2.8" fill="#ef4444"><title>${point.ts}: block ${point.block}</title></circle>
+          `;
+        })
+        .join("");
+
+      trendChart.innerHTML = `
+        <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff"></rect>
+        <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" stroke="#c7d5ea" stroke-width="1"></line>
+        <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#c7d5ea" stroke-width="1"></line>
+        <path d="${allowPath}" fill="none" stroke="#10b981" stroke-width="2.1"></path>
+        <path d="${challengePath}" fill="none" stroke="#f59e0b" stroke-width="2.1"></path>
+        <path d="${blockPath}" fill="none" stroke="#ef4444" stroke-width="2.1"></path>
+        ${dots}
+        <text x="${padX}" y="${padY - 8}" fill="#5f6f89" font-size="12">Allow</text>
+        <text x="${padX + 48}" y="${padY - 8}" fill="#5f6f89" font-size="12">Challenge</text>
+        <text x="${padX + 130}" y="${padY - 8}" fill="#5f6f89" font-size="12">Block</text>
+      `;
+      return;
+    }
 
     const maxLeak = Math.max(...points.map((p) => asNumber(p.leak_rate)));
     const maxLatency = Math.max(...points.map((p) => asNumber(p.latency_ms)));
@@ -291,20 +332,27 @@
     `;
   }
 
-  function renderChartCenter(payload, historyOverride) {
-    const metrics = extractMetrics(payload);
-    if (metrics) {
-      renderQualityCards(metrics);
-      renderPolicyBars(metrics);
+  function renderLiveTelemetry(live) {
+    if (!live) return;
+    renderQualityCards(live);
+    renderPolicyBars(live);
+    renderTrendChart(Array.isArray(live.timeline) ? live.timeline : []);
+    if (liveTelemetryStatus) {
+      liveTelemetryStatus.textContent = `Live window: last ${live.window_hours || 24} hour(s). Last update ${live.generated_at || "n/a"}`;
     }
-    const history = Array.isArray(historyOverride)
-      ? historyOverride
-      : Array.isArray(payload?.history)
-        ? payload.history
-        : Array.isArray(bootstrap.benchmarkHistory)
-          ? bootstrap.benchmarkHistory
-          : [];
-    renderTrendChart(history);
+  }
+
+  async function refreshLiveTelemetry() {
+    try {
+      const payload = await callApi("/audit/live?hours=24&bucket_minutes=60", { auth: true });
+      renderLiveTelemetry(payload.live);
+      return payload;
+    } catch (err) {
+      if (liveTelemetryStatus) {
+        liveTelemetryStatus.textContent = `Live telemetry unavailable: ${String(err)}`;
+      }
+      return null;
+    }
   }
 
   function renderMethodLeaderboard(comparison) {
@@ -579,7 +627,7 @@
       const response = await callApi("/generate", { method: "POST", body: payload });
       setViewer("Generate Result", response);
       updatePipeline(response);
-      renderChartCenter(response);
+      await refreshLiveTelemetry();
       showToast("Generate request completed.", "success");
     } catch (err) {
       setViewer("Generate Error", { status: "error", message: String(err) });
@@ -593,8 +641,8 @@
       const response = await callApi(`/privacy/benchmark?dataset_version=${encodeURIComponent(version)}&split=all&persist=1`, { auth: true });
       updateMetricsFromBenchmark(response.benchmark);
       setViewer("Benchmark Result", response);
-      renderChartCenter(response.benchmark);
       await refreshHistory();
+      await refreshLiveTelemetry();
       showToast("Benchmark run finished.", "success");
     } catch (err) {
       setViewer("Benchmark Error", { status: "error", message: String(err) });
@@ -606,7 +654,7 @@
     try {
       const response = await callApi("/audit/summary?hours=24", { auth: true });
       setViewer("Audit Summary", response);
-      renderChartCenter(response);
+      await refreshLiveTelemetry();
       showToast("Audit summary refreshed.", "success");
     } catch (err) {
       setViewer("Audit Summary Error", { status: "error", message: String(err) });
@@ -725,7 +773,6 @@
         { auth: true }
       );
       updateMetricsFromBenchmark(benchmark.benchmark);
-      renderChartCenter(benchmark.benchmark);
 
       const comparison = await runMethodComparison();
       const adversarial = await callApi(
@@ -741,6 +788,7 @@
       });
       renderVivaSummary(viva);
       await refreshHistory();
+      await refreshLiveTelemetry();
       if (runbookSummary) {
         runbookSummary.textContent =
           `Runbook complete: leak=${benchmark.benchmark.metrics.core_pii_leak_rate}, top_method=${
@@ -781,6 +829,15 @@
       renderComparisonTable();
       updateSortIndicators();
     });
+  });
+
+  document.getElementById("btn-live-refresh")?.addEventListener("click", async () => {
+    const payload = await refreshLiveTelemetry();
+    if (payload) {
+      showToast("Live telemetry refreshed.", "success");
+    } else {
+      showToast("Live telemetry refresh failed.", "error");
+    }
   });
 
   datasetSelect?.addEventListener("change", async () => {
@@ -826,12 +883,15 @@
 
   setActiveView("proof");
   updateSortIndicators();
-  renderChartCenter(bootstrap.benchmark || {});
+  refreshLiveTelemetry().catch(() => {});
   refreshDatasetVersions()
     .then(() => refreshComparisonOptions())
     .catch(() => {});
   callApi("/privacy/vault/stats", { auth: true }).then(renderVaultSummary).catch(() => {});
   runMethodComparison().catch(() => {});
+  window.setInterval(() => {
+    refreshLiveTelemetry().catch(() => {});
+  }, 30000);
   if (window.location.search.includes("token=")) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }

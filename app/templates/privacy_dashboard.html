@@ -321,10 +321,14 @@
 
             <section id="panel-chart" class="panel wide view-section" data-view="proof">
                 <h3>Operational Analytics</h3>
-                <p class="muted">High-level privacy quality indicators: leak, detection, policy distribution, and trend over time.</p>
+                <p class="muted">Live telemetry from recent firewall decisions (allow/challenge/block), refreshed automatically.</p>
+                <div class="action-row">
+                    <button id="btn-live-refresh" type="button">Refresh Live Telemetry</button>
+                    <span id="live-telemetry-status" class="muted">Live window: last 24 hours.</span>
+                </div>
                 <div class="chart-grid">
                     <div class="chart-card">
-                        <h4>Privacy Quality Snapshot</h4>
+                        <h4>Live Decision Snapshot</h4>
                         <div id="quality-cards" class="quality-grid"></div>
                     </div>
                     <div class="chart-card">
@@ -332,8 +336,8 @@
                         <div id="policy-bars" class="bars"></div>
                     </div>
                     <div class="chart-card chart-wide">
-                        <h4>Benchmark Trend Timeline</h4>
-                        <svg id="trend-chart" viewBox="0 0 760 210" role="img" aria-label="Benchmark trend chart"></svg>
+                        <h4>Live Policy Timeline</h4>
+                        <svg id="trend-chart" viewBox="0 0 760 210" role="img" aria-label="Live policy trend chart"></svg>
                     </div>
                 </div>
                 <div id="result-brief" class="result-brief">
