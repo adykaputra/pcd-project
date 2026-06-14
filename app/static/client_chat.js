@@ -409,7 +409,7 @@
         signal: controller.signal,
         body: JSON.stringify({
           prompt,
-          provider: (providerInput?.value || "mock").trim(),
+          provider: (providerInput?.value || "ollama").trim(),
           model: (modelInput?.value || "").trim() || undefined,
         }),
       });

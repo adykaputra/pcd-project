@@ -9,15 +9,14 @@
 <body>
     <div class="chat-shell">
         <aside class="sidebar">
-            <div class="sidebar-header">
-                <h1>Privacy Chat</h1>
-                <p>Welcome, <strong>{{ display_name }}</strong></p>
+            <div class="sidebar-header brand-block">
+                <div class="brand-icon" aria-hidden="true"></div>
+                <div>
+                    <h1>Privacy Chat</h1>
+                    <p>Welcome, <strong>{{ display_name }}</strong></p>
+                </div>
             </div>
             <button type="button" id="clear-chat" class="new-chat">+ New chat</button>
-            <section class="sidebar-section history">
-                <h3>Recent chats</h3>
-                <ul id="history-list" class="history-list"></ul>
-            </section>
             <section class="sidebar-section">
                 <h3>Workspace</h3>
                 <ul class="workspace-nav">
@@ -27,6 +26,10 @@
                     <li><button type="button" class="workspace-btn" data-workspace="scanner" data-prompt="Scan this message for possible PII entities and explain what should be redacted.">AI Scanner</button></li>
                     <li><button type="button" class="workspace-btn" data-workspace="notice" data-prompt="Draft a customer notice requesting non-sensitive information only.">Notice Draft</button></li>
                 </ul>
+            </section>
+            <section class="sidebar-section history">
+                <h3>Recent chats</h3>
+                <ul id="history-list" class="history-list"></ul>
             </section>
             <div class="sidebar-section">
                 <h3>Safety status</h3>
@@ -56,6 +59,7 @@
             </header>
 
             <section id="chat-welcome" class="chat-welcome">
+                <div class="welcome-orb" aria-hidden="true"></div>
                 <h3>Hi {{ display_name }}, start a privacy-safe session</h3>
                 <p>Choose a task to begin. Your prompt goes through redaction and policy checks before any model response.</p>
                 <div class="welcome-cards">
@@ -99,25 +103,19 @@
                     <button class="quick-btn" type="button" data-prompt="Help me draft a complaint email without including personal data.">Complaint Draft</button>
                     <button class="quick-btn" type="button" data-prompt="What data should never be shared with AI tools?">Safe Data Guide</button>
                 </section>
-                <textarea id="chat-input" rows="1" placeholder="Message Privacy Firewall..."></textarea>
-                <div class="composer-row">
-                    <label>
-                        Provider
-                        <select id="provider">
-                            <option value="ollama" {% if default_provider == "ollama" %}selected{% endif %}>ollama (live local)</option>
-                            <option value="openai" {% if default_provider == "openai" %}selected{% endif %}>openai (live cloud)</option>
-                            <option value="mock" {% if default_provider == "mock" %}selected{% endif %}>mock (offline demo)</option>
-                        </select>
-                    </label>
-                    <label>
-                        Model (optional)
-                        <input id="model" value="{{ default_model or '' }}" placeholder="optional-model" />
-                    </label>
+                <div class="composer-input-row">
+                    <textarea id="chat-input" rows="1" placeholder="Ask a question..."></textarea>
                     <div class="composer-actions">
                         <button type="button" id="copy-last" class="btn-secondary">Copy Last</button>
                         <button type="submit">Send</button>
                     </div>
                 </div>
+                <div class="composer-meta">
+                    <span class="provider-pill">Provider: Ollama (locked)</span>
+                    <span class="provider-pill">Model: {{ default_model or "llama3.2:3b" }}</span>
+                </div>
+                <input id="provider" type="hidden" value="ollama" />
+                <input id="model" type="hidden" value="{{ default_model or '' }}" />
                 <p id="typing-indicator" class="typing" hidden>Assistant is thinking...</p>
             </form>
         </main>
