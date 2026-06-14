@@ -175,7 +175,8 @@ def dashboard():
         reverse=True,
     )
     
-    dataset_version = "v2" if "v2" in list_dataset_versions() else "v1"
+    versions = list_dataset_versions()
+    dataset_version = "v3" if "v3" in versions else ("v2" if "v2" in versions else "v1")
     benchmark = run_privacy_benchmark(dataset_version=dataset_version, split="all")
     calibration = calibrate_policy_thresholds(dataset_version=dataset_version, split="validation")
     autotune = recommend_thresholds_from_audit()
@@ -192,7 +193,7 @@ def dashboard():
         benchmark_history=history,
         policy_thresholds=get_policy_thresholds(),
         dataset_version=dataset_version,
-        available_dataset_versions=list_dataset_versions(),
+        available_dataset_versions=versions,
         initial_token=request.args.get("token"),
         latest_dispatch_proof=latest_dispatch_proof,
         recent_sessions=recent_sessions,

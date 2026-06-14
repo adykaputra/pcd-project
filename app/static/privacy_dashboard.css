@@ -319,7 +319,7 @@ button:hover {
 
 .proof-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.6rem;
   margin-bottom: 0.7rem;
 }
@@ -368,6 +368,27 @@ button:hover {
   color: #cfe0ff;
   font-size: 0.86rem;
   line-height: 1.45;
+}
+
+.leaderboard {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.2rem;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 1.6fr 0.8fr 0.7fr 0.7fr 0.8fr;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(21, 29, 52, 0.78);
+  padding: 0.45rem 0.5rem;
+  font-size: 0.78rem;
+}
+
+.leaderboard-row strong {
+  color: #ecf4ff;
 }
 
 .thread-list {

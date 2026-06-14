@@ -7,6 +7,7 @@
   const pipelineDispatch = document.getElementById("pipeline-dispatch");
   const pipelineTrace = document.getElementById("pipeline-trace");
   const pipelineDetail = document.getElementById("pipeline-detail");
+  const methodLeaderboard = document.getElementById("method-leaderboard");
   const qualityCards = document.getElementById("quality-cards");
   const policyBars = document.getElementById("policy-bars");
   const trendChart = document.getElementById("trend-chart");
@@ -39,6 +40,12 @@
     }
     if (payload.dispatch_proof?.model_input_is_tokenized !== undefined) {
       details.push(`dispatch_tokenized=${payload.dispatch_proof.model_input_is_tokenized ? "yes" : "no"}`);
+    }
+    if (payload.comparison?.adaptive_summary?.core_pii_leak_rate !== undefined) {
+      details.push(`adaptive_leak_rate=${payload.comparison.adaptive_summary.core_pii_leak_rate}`);
+    }
+    if (payload.comparison?.adaptive_summary?.avg_target_recall !== undefined) {
+      details.push(`adaptive_recall=${payload.comparison.adaptive_summary.avg_target_recall}`);
     }
     if (payload.summary?.total_blocked_last_24h !== undefined) {
       details.push(`blocked_last_24h=${payload.summary.total_blocked_last_24h}`);
@@ -281,6 +288,32 @@
     renderTrendChart(history);
   }
 
+  function renderMethodLeaderboard(comparison) {
+    if (!methodLeaderboard) return;
+    const rows = comparison?.method_metrics;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      methodLeaderboard.className = "leaderboard muted";
+      methodLeaderboard.textContent = "Run Method Comparison to populate method ranking.";
+      return;
+    }
+
+    methodLeaderboard.className = "leaderboard";
+    methodLeaderboard.innerHTML = rows
+      .slice(0, 5)
+      .map(
+        (row, idx) => `
+          <div class="leaderboard-row">
+            <strong>${idx + 1}. ${row.method_name}</strong>
+            <span>score ${Number(row.composite_score ?? 0).toFixed(3)}</span>
+            <span>recall ${Number(row.avg_target_recall ?? 0).toFixed(3)}</span>
+            <span>leak ${Number(row.core_pii_leak_rate ?? 0).toFixed(3)}</span>
+            <span>wins ${row.wins || 0}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
   async function refreshHistory() {
     try {
       const payload = await callApi("/privacy/benchmark/history?limit=20", { auth: true });
@@ -377,6 +410,22 @@
     } catch (err) {
       setViewer("Audit Summary Error", { status: "error", message: String(err) });
       showToast("Audit summary failed.", "error");
+    }
+  });
+
+  document.getElementById("btn-comparison")?.addEventListener("click", async () => {
+    try {
+      const version = datasetSelect?.value || "v3";
+      const response = await callApi(
+        `/privacy/comparison?dataset_version=${encodeURIComponent(version)}&split=all&include_cases=0`,
+        { auth: true }
+      );
+      setViewer("Method Comparison", response);
+      renderMethodLeaderboard(response.comparison);
+      showToast("Method comparison completed.", "success");
+    } catch (err) {
+      setViewer("Method Comparison Error", { status: "error", message: String(err) });
+      showToast("Method comparison failed.", "error");
     }
   });
 

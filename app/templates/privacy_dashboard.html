@@ -139,8 +139,9 @@
                     <div class="action-row">
                         <button id="btn-benchmark" type="button">Run Privacy Check</button>
                         <button id="btn-summary" type="button">Show Audit Summary</button>
+                        <button id="btn-comparison" type="button">Run Method Comparison</button>
                     </div>
-                    <p class="muted">These controls produce measurable evidence: leak rate, detection rate, and policy action totals.</p>
+                    <p class="muted">These controls produce measurable evidence: firewall quality, audit totals, and method-vs-method redaction performance.</p>
                 </article>
             </section>
 
@@ -158,6 +159,10 @@
                     <div class="proof-card">
                         <span>Show Audit Summary</span>
                         <strong>24h totals of allow/challenge/block</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Run Method Comparison</span>
+                        <strong>Regex vs Presidio vs NER vs Vault vs Validator</strong>
                     </div>
                     <div class="proof-card">
                         <span>Evidence Log</span>
@@ -271,6 +276,10 @@
                 <div id="result-brief" class="result-brief">
                     <h4>Latest Action Result</h4>
                     <p id="result-summary">No admin action yet.</p>
+                </div>
+                <div class="result-brief">
+                    <h4>Comparative Method Leaderboard</h4>
+                    <div id="method-leaderboard" class="leaderboard muted">Run Method Comparison to populate method ranking.</div>
                 </div>
             </section>
 

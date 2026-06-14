@@ -15,6 +15,42 @@ This system is now shipped as a full product surface:
   - `docker-compose.yml` for development.
   - `docker-compose.prod.yml` for production-style runtime.
 
+## Research Pivot: Comparative Redaction Study (FYP Core)
+
+The project now supports a thesis-grade comparative path instead of a single
+"redact then chat" demo. You can evaluate five methods across multilingual and
+adversarial prompts:
+
+1. Basic Regex
+2. Microsoft Presidio (optional dependency; falls back gracefully if unavailable)
+3. Keyword + Vault tokenization
+4. Named Entity Recognition (NER)
+5. LLM Validator Guard (heuristic safety layer)
+
+### Why this matters
+
+- Produces measurable evidence, not just UI behavior.
+- Supports method-vs-method ranking (recall, leak rate, utility, latency).
+- Adds adaptive selector analysis to justify deployment choices by scenario.
+
+### Run comparative study from dashboard API
+
+```bash
+# admin auth required
+curl -H 'Authorization: Bearer <token>' \
+  'http://localhost:5100/privacy/comparison?dataset_version=v3&split=all&include_cases=0'
+```
+
+### Generate reproducible comparative artifacts
+
+```bash
+python3 scripts/run_comparative_study.py --dataset-version v3 --split all
+```
+
+Artifacts:
+- `reports/comparative/comparative_study.json`
+- `reports/comparative/comparative_study.md`
+
 ## Quick Deploy (Production Profile)
 
 1. Create runtime secrets:

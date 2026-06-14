@@ -13,6 +13,7 @@ from app.privacy_autotune import recommend_thresholds_from_audit
 from app.privacy_policy_config import save_policy_thresholds, get_policy_thresholds
 from app.privacy_benchmark_history import get_benchmark_history_manager
 from app.privacy_benchmark_dataset import list_dataset_versions
+from app.privacy_comparison import run_privacy_comparison
 
 bp = Blueprint('module3', __name__)
 
@@ -444,6 +445,31 @@ def privacy_benchmark():
     if persist and mode != "cross_split":
         run_id = get_benchmark_history_manager().record_run(results)
     return jsonify({"status": "ok", "benchmark": results, "persisted": persist, "run_id": run_id}), 200
+
+
+@bp.route('/privacy/comparison', methods=['GET'])
+def privacy_comparison():
+    """Admin-only endpoint for multi-method redaction comparison."""
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+
+    dataset_version = request.args.get("dataset_version", "v3")
+    split = request.args.get("split", "all")
+    include_cases = str(request.args.get("include_cases", "0")).lower() in {"1", "true", "yes"}
+    raw_methods = (request.args.get("methods") or "").strip()
+    methods = [item.strip() for item in raw_methods.split(",") if item.strip()] if raw_methods else None
+
+    try:
+        comparison = run_privacy_comparison(
+            dataset_version=dataset_version,
+            split=split,
+            methods=methods,
+            include_cases=include_cases,
+        )
+    except FileNotFoundError:
+        return jsonify({"status": "denied", "message": f"Unknown benchmark dataset version: {dataset_version}"}), 400
+
+    return jsonify({"status": "ok", "comparison": comparison}), 200
 
 
 @bp.route('/privacy/calibrate', methods=['GET'])
