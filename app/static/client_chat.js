@@ -21,6 +21,7 @@
   const welcomePanel = document.getElementById("chat-welcome");
   const quickButtons = Array.from(document.querySelectorAll(".quick-btn, .welcome-action"));
   const workspaceButtons = Array.from(document.querySelectorAll(".workspace-btn"));
+  const chatTitle = document.querySelector(".chat-topbar h2");
   const bootstrap = window.__CLIENT_BOOTSTRAP__ || {};
   const displayName = String(bootstrap.displayName || "Client");
   const userIdentity = String(bootstrap.userIdentity || displayName || "anonymous").toLowerCase();
@@ -126,6 +127,14 @@
     workspaceButtons.forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.workspace === current);
     });
+    if (chatTitle) {
+      const active = workspaceButtons.find((btn) => btn.dataset.workspace === current);
+      if (active && current !== "current") {
+        chatTitle.textContent = `Privacy-Protected Chat · ${active.textContent?.trim() || "Workspace"}`;
+      } else {
+        chatTitle.textContent = "Privacy-Protected Chat";
+      }
+    }
   }
 
   function setPromptDraft(text, focus = true) {
@@ -331,11 +340,13 @@
       if (welcomePanel) {
         welcomePanel.hidden = false;
       }
+      const label = btn.textContent?.trim() || workspace;
       appendMessage(
         "system",
-        `Workspace loaded: ${btn.textContent?.trim() || workspace}. You can edit the draft and send when ready.`,
+        `Workspace loaded: ${label}. Draft prompt inserted below.`,
         "workspace"
       );
+      appendEntry("system", `Workspace loaded: ${label}. Draft prompt inserted below.`, "workspace");
     });
   });
 
