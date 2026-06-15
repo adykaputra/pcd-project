@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production
     container_name: privacy_firewall_prod
     environment:
       - PYTHONPATH=/usr/src/app

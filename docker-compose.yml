@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production
     container_name: flask_app
     working_dir: /usr/src/app
     environment:

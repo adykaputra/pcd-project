@@ -31,3 +31,7 @@ CMD ["conda", "run", "--no-capture-output", "-n", "pcd", "gunicorn", "--bind", "
 #   docker build --target test .
 FROM runtime AS test
 RUN conda run -n pcd pytest -q --ignore=pcd-project --ignore-glob='*/pcd-project/*'
+
+# Keep runtime image as the default final build stage so `docker build`
+# and compose builds do not run tests unless explicitly targeted.
+FROM runtime AS production
