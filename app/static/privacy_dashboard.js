@@ -41,6 +41,7 @@
   let comparisonSortKey = "composite_score";
   let comparisonSortDir = "desc";
   let comparisonDimensions = null;
+  let activeView = "proof";
   let evidenceThreads = Array.isArray(bootstrap.sanitizedThreads) ? bootstrap.sanitizedThreads.slice() : [];
   let activeEvidenceThreadKey = "";
 
@@ -97,6 +98,7 @@
   }
 
   function setActiveView(nextView) {
+    activeView = nextView;
     viewButtons.forEach((button) => {
       button.classList.toggle("active", button.dataset.view === nextView);
     });
@@ -1006,6 +1008,9 @@
   });
   window.setInterval(() => {
     refreshLiveTelemetry().catch(() => {});
+    if (activeView === "evidence") {
+      refreshEvidenceSessions().catch(() => {});
+    }
   }, 30000);
   if (window.location.search.includes("token=")) {
     window.history.replaceState({}, document.title, window.location.pathname);

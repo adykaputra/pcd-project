@@ -34,6 +34,46 @@ def _count_dictionary_terms(text: str, terms: set[str]) -> int:
     return total
 
 
+def _build_dlp_guardrail_prompt(tokenized_prompt: str, *, attachment_count: int = 0) -> str:
+    """Add stable DLP legaltech behavior instructions before model dispatch."""
+    attachment_note = (
+        f"- The user attached {attachment_count} file(s); include them in your case reasoning.\n"
+        if attachment_count
+        else ""
+    )
+    return (
+        "You are a Defect Liability Period (DLP) legaltech assistant.\n"
+        "Respond in a practical Malaysian property defect workflow style.\n"
+        "Keep output structured with: Case Summary, Risk Tier, Recommended Next Action, Draft Language (if needed).\n"
+        "Do not request or expose personal identifiers.\n"
+        f"{attachment_note}"
+        "If legal certainty is unclear, state assumptions explicitly.\n\n"
+        "[Sanitized Case Input]\n"
+        f"{tokenized_prompt}"
+    )
+
+
+def _build_dlp_challenge_reply(payload: dict) -> str:
+    """Return a user-facing DLP-specific challenge message with rewrite guidance."""
+    risk = payload.get("risk_assessment") or {}
+    safe_preview = (payload.get("safe_prompt_preview") or "").strip()
+    guidance = (
+        "I detected sensitive details in your DLP case input. "
+        "Before I continue, please remove direct identifiers such as full name, IC/ID number, phone, plate number, and exact home address.\n\n"
+        "Use this safe structure:\n"
+        "1) Defect issue summary\n"
+        "2) Location in property (non-identifying)\n"
+        "3) Timeline/events\n"
+        "4) Requested rectification action\n"
+        "5) Deadline or escalation plan\n"
+    )
+    if safe_preview:
+        guidance += f"\nSuggested sanitized draft:\n{safe_preview}"
+    if risk.get("risk_level"):
+        guidance += f"\n\nCurrent risk tier: {risk.get('risk_level')}."
+    return guidance
+
+
 def _decode_bearer_token(req):
     auth = req.headers.get("Authorization") or ""
     if auth.startswith("Bearer "):
@@ -271,6 +311,11 @@ def _run_firewall_pipeline(
             "status": "challenge",
             "message": "Prompt requires human review before LLM forwarding.",
             "risk_assessment": risk,
+            "safe_prompt_preview": (tokenized_prompt[:280] + "...") if len(tokenized_prompt) > 280 else tokenized_prompt,
+            "tokenization": {
+                "applied": tokenization.get("had_pii"),
+                "token_counts": tokenization.get("token_counts"),
+            },
         }, 409
 
     from flask import g
@@ -323,7 +368,11 @@ def _run_firewall_pipeline(
         from .adapters import get_adapter
 
         adapter = get_adapter(provider=requested_provider, model=model)
-        result = adapter.send_prompt(tokenized_prompt, images=attachment_images or None)
+        model_prompt = _build_dlp_guardrail_prompt(
+            tokenized_prompt,
+            attachment_count=len(attachment_manifest or []),
+        )
+        result = adapter.send_prompt(model_prompt, images=attachment_images or None)
         resolved_provider = result.get("provider")
         if not isinstance(resolved_provider, str) or not resolved_provider:
             provider_name = getattr(adapter, "provider_name", None)
@@ -337,7 +386,11 @@ def _run_firewall_pipeline(
             from .adapters import get_adapter
 
             adapter = get_adapter(provider="mock", model=model)
-            result = adapter.send_prompt(tokenized_prompt)
+            fallback_prompt = _build_dlp_guardrail_prompt(
+                tokenized_prompt,
+                attachment_count=len(attachment_manifest or []),
+            )
+            result = adapter.send_prompt(fallback_prompt, images=attachment_images or None)
             resolved_provider = "mock"
             result["fallback_reason"] = "ollama_unavailable"
         else:
@@ -499,9 +552,11 @@ def client_chat():
         return jsonify(
             {
                 "status": "challenge",
-                "reply": "I detected sensitive details. Please remove personal identifiers and try again.",
+                "reply": _build_dlp_challenge_reply(payload),
                 "message": payload.get("message"),
                 "risk_assessment": payload.get("risk_assessment"),
+                "safe_prompt_preview": payload.get("safe_prompt_preview"),
+                "tokenization": payload.get("tokenization"),
             }
         ), 409
 
@@ -509,7 +564,7 @@ def client_chat():
         return jsonify(
             {
                 "status": "denied",
-                "reply": "I cannot process that request because it is too sensitive under privacy policy.",
+                "reply": "This DLP request is blocked because the privacy risk is too high. Remove direct identifiers and resubmit a sanitized case summary.",
                 "message": payload.get("message"),
                 "risk_assessment": payload.get("risk_assessment"),
             }
