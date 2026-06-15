@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Privacy Firewall - Client Chat</title>
+    <title>DLP Legal Assistant - Client Chat</title>
     <link rel="stylesheet" href="/static/client_chat.css" />
 </head>
 <body>
@@ -12,38 +12,38 @@
             <div class="sidebar-header brand-block">
                 <div class="brand-icon" aria-hidden="true"></div>
                 <div>
-                    <h1>Privacy Chat</h1>
+                    <h1>DLP Advisor</h1>
                     <p>Welcome, <strong>{{ display_name }}</strong></p>
                 </div>
             </div>
-            <button type="button" id="clear-chat" class="new-chat">+ New chat</button>
+            <button type="button" id="clear-chat" class="new-chat">+ New case</button>
             <section class="sidebar-section">
                 <h3>Workspace</h3>
                 <ul class="workspace-nav">
-                    <li><button type="button" class="workspace-btn active" data-workspace="current">Current Chat</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="guidelines" data-prompt="Share a short checklist for safe prompt writing in customer support workflows.">Guidelines</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="assessment" data-prompt="Assess the privacy risk level of this message before sharing with an LLM.">Assessment</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="scanner" data-prompt="Scan this message for possible PII entities and explain what should be redacted.">AI Scanner</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="notice" data-prompt="Draft a customer notice requesting non-sensitive information only.">Notice Draft</button></li>
+                    <li><button type="button" class="workspace-btn active" data-workspace="current">Current Case</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="guidelines" data-prompt="Give me a checklist to manage Defect Liability Period (DLP) communication with a client.">DLP Guidelines</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="assessment" data-prompt="Assess this defect case and classify urgency, liability risk, and recommended next action.">Liability Assessment</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="scanner" data-prompt="Scan this defect report and extract the key incident facts for a DLP case file.">Clause Scanner</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="notice" data-prompt="Draft a formal DLP notice letter for contractor response within the required timeline.">Notice Letter</button></li>
                 </ul>
             </section>
             <section class="sidebar-section history">
-                <h3>Recent chats</h3>
+                <h3>Recent cases</h3>
                 <ul id="history-list" class="history-list"></ul>
             </section>
             <div class="sidebar-section">
-                <h3>Safety status</h3>
+                <h3>Session status</h3>
                 <div class="sidebar-badges">
-                    <span class="pill">Firewall Active</span>
-                    <span class="pill">Vault Tokenization</span>
+                    <span class="pill">DLP assistant active</span>
+                    <span class="pill">Ollama local mode</span>
                 </div>
             </div>
             <div class="sidebar-section muted-copy">
-                <h3>How this assistant works</h3>
+                <h3>How this assistant helps</h3>
                 <ul>
-                    <li>PII is tokenized before model dispatch.</li>
-                    <li>High-risk prompts are challenged or blocked.</li>
-                    <li>You get policy insight after each response.</li>
+                    <li>Supports DLP case intake, triage, and notice drafting.</li>
+                    <li>Keeps your responses structured for showcase walkthroughs.</li>
+                    <li>Sensitive data controls run silently in the background.</li>
                 </ul>
             </div>
             <a id="logout-btn" href="/" class="signout-link">Sign Out</a>
@@ -51,7 +51,7 @@
 
         <main class="chat-main">
             <header class="chat-topbar">
-                <h2>Privacy-Protected Chat</h2>
+                <h2>DLP Legal Assistant</h2>
                 <div class="header-meta">
                     <span id="turn-counter" class="badge neutral">0 turns</span>
                     <span id="policy-indicator" class="badge neutral">ready</span>
@@ -62,19 +62,19 @@
                 <section id="chat-welcome" class="chat-welcome">
                     <div class="welcome-orb" aria-hidden="true"></div>
                     <h3>Hi {{ display_name }}</h3>
-                    <p>How can I help you today?</p>
+                    <p>Ready to work on your Defect Liability Period case?</p>
                     <div class="welcome-cards">
-                        <button class="task-card welcome-action" type="button" data-prompt="Show me safe prompt-writing guidelines for customer support logs.">
-                            <strong>Guidelines</strong>
-                            <span>Learn safe prompt practices</span>
+                        <button class="task-card welcome-action" type="button" data-prompt="Give me a DLP communication checklist I can follow before sending a case update.">
+                            <strong>DLP Guidelines</strong>
+                            <span>Use a clear case workflow</span>
                         </button>
-                        <button class="task-card welcome-action" type="button" data-prompt="Analyze this text for potential PII exposure before sending to AI.">
-                            <strong>AI Scanner</strong>
-                            <span>Check exposure risk first</span>
+                        <button class="task-card welcome-action" type="button" data-prompt="Analyze this defect report and identify the facts I should include in a proper DLP case summary.">
+                            <strong>Defect Scanner</strong>
+                            <span>Extract useful case facts</span>
                         </button>
-                        <button class="task-card welcome-action" type="button" data-prompt="Assess the risk level of sharing this message with an LLM.">
-                            <strong>Assessment</strong>
-                            <span>Get policy risk feedback</span>
+                        <button class="task-card welcome-action" type="button" data-prompt="Evaluate this issue and provide liability risk level, contractor responsibility, and next legal action.">
+                            <strong>Liability Assessment</strong>
+                            <span>Get risk and action guidance</span>
                         </button>
                     </div>
                 </section>
@@ -82,17 +82,17 @@
                 <section id="messages" class="messages">
                     <div class="message system">
                         <div class="meta">system</div>
-                        <p>Hi {{ display_name }}, I am your privacy-safe AI assistant. I will protect personal identifiers before responding.</p>
+                        <p>Hi {{ display_name }}, I am your DLP legal support assistant. I can help structure defect cases, notices, and response plans.</p>
                     </div>
                 </section>
 
                 <section id="privacy-report" class="privacy-report" hidden>
-                    <h3>Privacy Insight</h3>
+                    <h3>Case Insight</h3>
                     <div class="report-grid">
-                        <div><span>Policy</span><strong id="report-policy">n/a</strong></div>
+                        <div><span>Decision</span><strong id="report-policy">n/a</strong></div>
                         <div><span>Risk Score</span><strong id="report-score">n/a</strong></div>
-                        <div><span>Risk Level</span><strong id="report-level">n/a</strong></div>
-                        <div><span>Tokens Applied</span><strong id="report-tokens">0</strong></div>
+                        <div><span>Risk Tier</span><strong id="report-level">n/a</strong></div>
+                        <div><span>Case Flags</span><strong id="report-tokens">0</strong></div>
                     </div>
                     <p id="report-reasons" class="muted"></p>
                     <p id="report-proof" class="muted"></p>
@@ -101,20 +101,20 @@
 
             <form id="chat-form" class="composer">
                 <section id="suggestions-bar" class="quick-prompts">
-                    <button class="suggestion-btn" type="button" data-prompt="Summarize zero trust in beginner-friendly language.">Zero Trust Summary</button>
-                    <button class="suggestion-btn" type="button" data-prompt="Help me draft a complaint email without including personal data.">Complaint Draft</button>
-                    <button class="suggestion-btn" type="button" data-prompt="What data should never be shared with AI tools?">Safe Data Guide</button>
+                    <button class="suggestion-btn" type="button" data-prompt="Create a DLP case summary format with sections I can present to my supervisor.">Case Summary Format</button>
+                    <button class="suggestion-btn" type="button" data-prompt="Draft a formal defect notice letter to contractor with response deadline.">Defect Notice Draft</button>
+                    <button class="suggestion-btn" type="button" data-prompt="List key evidence I should collect for a strong DLP liability claim.">Evidence Checklist</button>
                 </section>
                 <div class="composer-input-row">
-                    <textarea id="chat-input" rows="1" placeholder="Ask a question..."></textarea>
+                    <textarea id="chat-input" rows="1" placeholder="Ask about a DLP case, defect issue, or notice draft..."></textarea>
                     <div class="composer-actions">
                         <button type="button" id="copy-last" class="btn-secondary">Copy Last</button>
                         <button type="submit">Send</button>
                     </div>
                 </div>
                 <div class="composer-meta">
-                    <span id="workspace-status" class="provider-pill">Workspace: current chat</span>
-                    <span class="provider-pill">Provider: Ollama (locked)</span>
+                    <span id="workspace-status" class="provider-pill">Mode: current case</span>
+                    <span class="provider-pill">Engine: Ollama local</span>
                     <span class="provider-pill">Model: {{ default_model or "llama3.2:3b" }}</span>
                 </div>
                 <input id="provider" type="hidden" value="ollama" />

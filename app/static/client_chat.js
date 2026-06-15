@@ -28,7 +28,7 @@
   const userIdentity = String(bootstrap.userIdentity || displayName || "anonymous").toLowerCase();
   const authToken = String(bootstrap.authToken || "");
   const REQUEST_TIMEOUT_MS = 120000;
-  const HISTORY_KEY = `privacy_firewall_chat_sessions_v2:${userIdentity}`;
+  const HISTORY_KEY = `dlp_chat_sessions_v3:${userIdentity}`;
   const MAX_HISTORY = 20;
   let lastAssistantText = "";
   let turns = 0;
@@ -38,48 +38,48 @@
 
   const WORKSPACE_CONFIG = {
     current: {
-      label: "Current Chat",
+      label: "Current Case",
       prompt: "",
       suggestions: [
-        "Summarize zero trust in beginner-friendly language.",
-        "Help me draft a complaint email without including personal data.",
-        "What data should never be shared with AI tools?",
+        "Create a clean DLP case summary structure I can reuse.",
+        "What should be in a defect report before escalation?",
+        "Give me a short handover note for an unresolved defect case.",
       ],
     },
     guidelines: {
-      label: "Guidelines",
-      prompt: "Give me a practical checklist for privacy-safe prompt writing in customer support workflows.",
+      label: "DLP Guidelines",
+      prompt: "Give me a practical checklist for managing Defect Liability Period communication with clients and contractors.",
       suggestions: [
-        "List 8 prompt-writing rules for avoiding personal identifiers.",
-        "Show bad vs good examples of privacy-safe prompts.",
-        "Create a one-minute privacy checklist for non-technical staff.",
+        "List 8 practical DLP communication rules for project teams.",
+        "Show bad vs good examples of DLP case updates.",
+        "Create a one-minute DLP checklist for non-technical staff.",
       ],
     },
     assessment: {
-      label: "Assessment",
-      prompt: "Assess the privacy risk of this message and explain why.",
+      label: "Liability Assessment",
+      prompt: "Assess this defect case and explain urgency, liability risk, and recommended next action.",
       suggestions: [
-        "Evaluate this prompt using low/medium/high privacy risk levels.",
-        "What signals cause a prompt to be challenged by policy?",
-        "How can I rewrite a medium-risk prompt to pass policy?",
+        "Evaluate this case using low/medium/high legal urgency levels.",
+        "What facts increase liability risk in this defect report?",
+        "How can I rewrite this report to be clearer for legal review?",
       ],
     },
     scanner: {
-      label: "AI Scanner",
-      prompt: "Scan this text for potential PII entities and recommend redactions.",
+      label: "Clause Scanner",
+      prompt: "Scan this defect report and extract key timeline facts, parties involved, and required actions.",
       suggestions: [
-        "Identify all possible PII categories in this message.",
-        "Return a redacted version with placeholders.",
-        "Explain which tokens should be masked before model dispatch.",
+        "Identify key incident facts and missing details in this report.",
+        "Turn this raw message into a structured case note.",
+        "Summarize clauses I should check for this defect type.",
       ],
     },
     notice: {
-      label: "Notice Draft",
-      prompt: "Draft a customer notice requesting only non-sensitive information.",
+      label: "Notice Letter",
+      prompt: "Draft a formal DLP notice letter for contractor response within a defined timeline.",
       suggestions: [
-        "Draft a customer-friendly notice about not sharing personal identifiers.",
-        "Write a short policy statement for safe AI chat usage.",
-        "Create a consent message that excludes sensitive personal data.",
+        "Draft a notice with issue summary, expected remedy, and deadline.",
+        "Write a reminder notice for delayed defect rectification.",
+        "Create a concise final warning notice before escalation.",
       ],
     },
   };
@@ -95,14 +95,14 @@
   }
 
   function defaultSystemMessage() {
-    return `Hi ${displayName}, I am your privacy-safe AI assistant. I will protect personal identifiers before responding.`;
+    return `Hi ${displayName}, I am your DLP legal support assistant. I can help with defect case analysis, notices, and action planning.`;
   }
 
   function createSession() {
     const ts = nowTs();
     return {
       id: `chat-${ts}-${Math.random().toString(36).slice(2, 7)}`,
-      title: "New chat",
+      title: "New case",
       updatedAt: ts,
       entries: [{ role: "system", text: defaultSystemMessage(), meta: "system", ts }],
     };
@@ -118,7 +118,7 @@
         .filter((session) => session && typeof session === "object")
         .map((session) => ({
           id: String(session.id || ""),
-          title: String(session.title || "New chat"),
+          title: String(session.title || "New case"),
           updatedAt: Number(session.updatedAt || nowTs()),
           entries: Array.isArray(session.entries) ? session.entries : [],
         }))
@@ -143,7 +143,7 @@
 
   function getSessionTitle(entries) {
     const firstUser = (entries || []).find((entry) => entry.role === "user" && entry.text);
-    if (!firstUser) return "New chat";
+    if (!firstUser) return "New case";
     const compact = String(firstUser.text).replace(/\s+/g, " ").trim();
     return compact.length > 44 ? `${compact.slice(0, 44)}...` : compact;
   }
@@ -163,8 +163,14 @@
 
   function setIndicator(status) {
     const safe = String(status || "neutral").toLowerCase();
+    const labelMap = {
+      neutral: "ready",
+      ok: "clear",
+      challenge: "review",
+      denied: "blocked",
+    };
     indicator.className = `badge ${safe}`;
-    indicator.textContent = safe;
+    indicator.textContent = labelMap[safe] || safe;
   }
 
   function setTyping(visible) {
@@ -181,14 +187,14 @@
     if (chatTitle) {
       const active = workspaceButtons.find((btn) => btn.dataset.workspace === activeWorkspace);
       if (active && activeWorkspace !== "current") {
-        chatTitle.textContent = `Privacy-Protected Chat · ${active.textContent?.trim() || "Workspace"}`;
+        chatTitle.textContent = `DLP Legal Assistant · ${active.textContent?.trim() || "Workspace"}`;
       } else {
-        chatTitle.textContent = "Privacy-Protected Chat";
+        chatTitle.textContent = "DLP Legal Assistant";
       }
     }
-    const label = WORKSPACE_CONFIG[activeWorkspace]?.label || "Current Chat";
+    const label = WORKSPACE_CONFIG[activeWorkspace]?.label || "Current Case";
     if (workspaceStatus) {
-      workspaceStatus.textContent = `Workspace: ${label.toLowerCase()}`;
+      workspaceStatus.textContent = `Mode: ${label.toLowerCase()}`;
     }
   }
 
@@ -269,12 +275,12 @@
     reportPolicy.textContent = String(risk.policy_action || payload.status || "n/a");
     reportScore.textContent = String(risk.risk_score ?? "n/a");
     reportLevel.textContent = String(risk.risk_level || "n/a");
-    reportTokens.textContent = String(totalTokens);
-    reportReasons.textContent = reasons.length ? `Signals: ${reasons.join(", ")}` : "Signals: none";
+    const caseFlags = Math.max(reasons.length, totalTokens);
+    reportTokens.textContent = String(caseFlags);
+    reportReasons.textContent = reasons.length ? `Case signals: ${reasons.join(", ")}` : "Case signals: none";
     if (reportProof) {
-      const tokenized = dispatchProof.model_input_is_tokenized ? "yes" : "unknown";
-      const preview = dispatchProof.tokenized_prompt_preview || "n/a";
-      reportProof.textContent = `LLM input tokenized: ${tokenized}. Preview sent to model: ${preview}`;
+      const secureRelay = dispatchProof.model_input_is_tokenized ? "active" : "standby";
+      reportProof.textContent = `Background compliance guard: ${secureRelay}.`;
     }
     reportNode.hidden = false;
   }
@@ -325,7 +331,7 @@
 
       const titleNode = document.createElement("span");
       titleNode.className = "history-item-title";
-      titleNode.textContent = session.title || "New chat";
+      titleNode.textContent = session.title || "New case";
 
       const timeNode = document.createElement("span");
       timeNode.className = "history-item-time";
@@ -505,12 +511,12 @@
         if (payload.fallback_reason === "ollama_unavailable") {
           appendMessage(
             "system",
-            "Live Ollama model is unavailable right now, so I switched to offline demo mode to keep chat responsive.",
+            "Local Ollama model is temporarily unavailable. Please retry in a moment.",
             "system"
           );
           appendEntry(
             "system",
-            "Live Ollama model is unavailable right now, so I switched to offline demo mode to keep chat responsive.",
+            "Local Ollama model is temporarily unavailable. Please retry in a moment.",
             "system"
           );
         }
