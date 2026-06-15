@@ -21,4 +21,6 @@ dependencies:
     - black
     - PyJWT
     - authlib
+    - pypdf
+    - python-docx
     # add other pip deps here

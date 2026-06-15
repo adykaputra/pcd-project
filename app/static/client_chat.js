@@ -358,6 +358,7 @@
       type: file.type || "application/octet-stream",
       size: Number(file.size || 0),
       kind,
+      file,
     }));
     pendingAttachments = [...pendingAttachments, ...next].slice(0, 6);
     renderAttachmentList();
@@ -709,19 +710,40 @@
     const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await fetch("/client/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
+      const hasAttachments = pendingAttachments.length > 0;
+      const headers = {
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      };
+      let body;
+      if (hasAttachments) {
+        const formData = new FormData();
+        formData.append("prompt", modelPrompt);
+        formData.append("session_id", activeSessionId);
+        formData.append("provider", (providerInput?.value || "ollama").trim());
+        const chosenModel = (modelInput?.value || "").trim();
+        if (chosenModel) {
+          formData.append("model", chosenModel);
+        }
+        pendingAttachments.forEach((item) => {
+          if (item?.file) {
+            formData.append("attachments", item.file, item.name);
+          }
+        });
+        body = formData;
+      } else {
+        headers["Content-Type"] = "application/json";
+        body = JSON.stringify({
           prompt: modelPrompt,
           session_id: activeSessionId,
           provider: (providerInput?.value || "ollama").trim(),
           model: (modelInput?.value || "").trim() || undefined,
-        }),
+        });
+      }
+      const response = await fetch("/client/chat", {
+        method: "POST",
+        headers,
+        signal: controller.signal,
+        body,
       });
       const payload = await response.json();
       if (response.status === 401) {
@@ -730,6 +752,12 @@
       }
 
       if (payload.status === "ok") {
+        const attachmentWarnings = Array.isArray(payload.attachment_warnings) ? payload.attachment_warnings : [];
+        if (attachmentWarnings.length) {
+          const warningText = `Attachment notes: ${attachmentWarnings.join(" ")}`;
+          appendMessage("system", warningText, "system");
+          appendEntry("system", warningText, "system");
+        }
         if (payload.fallback_reason === "ollama_unavailable") {
           appendMessage(
             "system",
@@ -744,7 +772,7 @@
         }
         const streamed = await streamAssistantText(
           payload.reply || "No response text returned.",
-          `assistant · ${payload.provider || "unknown"}`
+          `assistant · ${payload.provider || "unknown"}${payload.model ? ` (${payload.model})` : ""}`
         );
         lastAssistantText = streamed.finalText || "";
         turns += 1;

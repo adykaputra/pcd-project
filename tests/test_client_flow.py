@@ -1,5 +1,6 @@
 from app import create_app
 from uuid import uuid4
+from io import BytesIO
 
 
 def _client():
@@ -113,3 +114,47 @@ def test_client_delete_session_removes_server_evidence(monkeypatch):
     assert body["deleted"]["deleted_events"] == 3
     assert captured["session_id"] == "chat-abc123"
     assert "@" in captured["user_identity"]
+
+
+def test_client_chat_accepts_multipart_attachments(monkeypatch):
+    client = _client()
+    token = _create_user_and_get_token(client)
+    captured = {}
+
+    def _fake_pipeline(**kwargs):
+        captured.update(kwargs)
+        return {
+            "status": "ok",
+            "provider": "ollama",
+            "model": "llava:7b",
+            "response": "Processed uploaded evidence.",
+            "offline_mode": False,
+            "risk_assessment": {"policy_action": "allow"},
+            "tokenization": {"applied": True, "token_counts": {}},
+            "attachments": {"count": 2, "image_count": 1, "files": []},
+        }, 200
+
+    monkeypatch.setattr("app.module3.routes._run_firewall_pipeline", _fake_pipeline)
+
+    response = client.post(
+        "/client/chat",
+        data={
+            "prompt": "Analyze this case bundle.",
+            "provider": "ollama",
+            "session_id": "session-multipart-1",
+            "attachments": [
+                (BytesIO(b"The defect appeared after handover and repeated in unit B12."), "report.txt"),
+                (BytesIO(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"), "defect.png"),
+            ],
+        },
+        content_type="multipart/form-data",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["status"] == "ok"
+    assert body["reply"] == "Processed uploaded evidence."
+    assert captured["audit_session_id"] == "session-multipart-1"
+    assert len(captured["attachment_manifest"]) == 2
+    assert len(captured["attachment_images"]) == 1
+    assert "[Attachment Context]" in captured["inbound_prompt"]

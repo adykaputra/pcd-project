@@ -155,6 +155,9 @@ The production profile uses Gunicorn runtime and health checks, with persisted `
    - Existing user credentials -> routed to client chat.
    - New user -> create account in the same page, then sign in.
 3. Chat via `/client/chat` (privacy firewall runs automatically before model dispatch).
+   - You can now upload pictures/documents from the client composer.
+   - Image files are forwarded to Ollama vision (`OLLAMA_VISION_MODEL`).
+   - PDF/DOCX/TXT files are text-extracted, then included in the redaction pipeline before model dispatch.
 4. If a prompt is too sensitive, the user receives challenge/deny feedback and can rewrite safely.
 
 ## Showcase Guide
@@ -429,14 +432,16 @@ export OPENAI_API_KEY=your_api_key_here
 ```bash
 ollama serve
 ollama pull llama3.2:3b
+ollama pull llava:7b
 export LLM_DEFAULT_PROVIDER=ollama
 export OLLAMA_BASE_URL=http://localhost:11434
 export OLLAMA_DEFAULT_MODEL=llama3.2:3b
+export OLLAMA_VISION_MODEL=llava:7b
 export OLLAMA_CONNECT_TIMEOUT_SECONDS=5
 export OLLAMA_TIMEOUT_SECONDS=90
 ```
 
-If chat appears to hang with Ollama selected, verify the model name is exact (`llama3.2:3b`) and Ollama is reachable from your app runtime.
+If chat appears to hang with Ollama selected, verify model names are exact (`llama3.2:3b`, `llava:7b`) and Ollama is reachable from your app runtime.
 
 11. Optional: enable Google Sign-In (OAuth):
 

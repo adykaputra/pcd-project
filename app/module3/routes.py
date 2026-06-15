@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Optional
 from flask import Blueprint, request, jsonify, current_app, render_template, redirect, url_for
 from app.audit import get_manager
+from app.module3.attachments import ingest_client_attachments
 from app.module2.logic import tokenize_prompt_for_llm, detokenize_prompt_from_vault, COMMON_NAMES, COMMON_LOCATIONS
 from app.privacy_risk import evaluate_prompt_risk
 from app.privacy_benchmark import run_privacy_benchmark, run_privacy_benchmark_cross_split
@@ -143,6 +144,8 @@ def _run_firewall_pipeline(
     challenge_override: int | None = None,
     block_override: int | None = None,
     audit_session_id: str | None = None,
+    attachment_manifest: list[dict] | None = None,
+    attachment_images: list[str] | None = None,
 ):
     """Run tokenization, policy evaluation, and provider dispatch."""
     requested_provider = str(provider or os.getenv("LLM_DEFAULT_PROVIDER", "mock")).strip().lower()
@@ -285,6 +288,8 @@ def _run_firewall_pipeline(
         "user_identity": getattr(g, "user_identity", None),
         "user_name": getattr(g, "user_name", None),
         "session_id": session_ref,
+        "attachments_count": len(attachment_manifest or []),
+        "image_attachments_forwarded": len(attachment_images or []),
     }
     current_app.logger.info(
         "[PRIVACY_FIREWALL] Forwarding tokenized prompt to provider=%s model=%s",
@@ -309,6 +314,7 @@ def _run_firewall_pipeline(
                 "user_identity": getattr(g, "user_identity", None),
                 "user_name": getattr(g, "user_name", None),
                 "session_id": session_ref,
+                "attachments": (attachment_manifest or [])[:8],
             },
         },
     )
@@ -317,7 +323,7 @@ def _run_firewall_pipeline(
         from .adapters import get_adapter
 
         adapter = get_adapter(provider=requested_provider, model=model)
-        result = adapter.send_prompt(tokenized_prompt)
+        result = adapter.send_prompt(tokenized_prompt, images=attachment_images or None)
         resolved_provider = result.get("provider")
         if not isinstance(resolved_provider, str) or not resolved_provider:
             provider_name = getattr(adapter, "provider_name", None)
@@ -353,10 +359,11 @@ def _run_firewall_pipeline(
             },
         )
 
+    resolved_model = result.get("model") or model
     return {
         "status": "ok",
         "provider": resolved_provider,
-        "model": model,
+        "model": resolved_model,
         "response": result.get("text"),
         "offline_mode": bool(result.get("offline_mode", False)),
         "redaction_applied": tokenization["had_pii"],
@@ -369,6 +376,11 @@ def _run_firewall_pipeline(
         },
         "dispatch_proof": redaction_proof,
         "risk_assessment": risk,
+        "attachments": {
+            "count": len(attachment_manifest or []),
+            "image_count": len(attachment_images or []),
+            "files": (attachment_manifest or [])[:8],
+        },
     }, 200
 
 
@@ -428,9 +440,18 @@ def client_chat():
     if not payload or payload.get("role") not in {"user", "admin"}:
         return jsonify({"status": "denied", "message": "Authentication required"}), 401
 
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"status": "denied", "message": "Invalid request: JSON body required"}), 400
+    is_multipart = (request.mimetype or "").startswith("multipart/form-data")
+    attachment_bundle = {"manifest": [], "image_payloads": [], "extracted_text": "", "warnings": []}
+    if is_multipart:
+        data = request.form or {}
+        try:
+            attachment_bundle = ingest_client_attachments(request.files.getlist("attachments"))
+        except ValueError as exc:
+            return jsonify({"status": "denied", "message": str(exc)}), 400
+    else:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"status": "denied", "message": "Invalid request: JSON body required"}), 400
 
     prompt = data.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip():
@@ -442,11 +463,19 @@ def client_chat():
 
     provider = data.get("provider", os.getenv("LLM_DEFAULT_PROVIDER", "mock"))
     model = data.get("model")
+    if attachment_bundle.get("image_payloads") and str(provider).strip().lower() == "ollama":
+        model = model or os.getenv("OLLAMA_VISION_MODEL", "llava:7b")
+    extracted_attachment_text = str(attachment_bundle.get("extracted_text") or "").strip()
+    composed_prompt = prompt.strip()
+    if extracted_attachment_text:
+        composed_prompt = f"{composed_prompt}\n\n[Attachment Context]\n{extracted_attachment_text}"
     payload, status_code = _run_firewall_pipeline(
-        inbound_prompt=prompt.strip(),
+        inbound_prompt=composed_prompt,
         provider=provider,
         model=model,
         audit_session_id=session_id or None,
+        attachment_manifest=attachment_bundle.get("manifest") or [],
+        attachment_images=attachment_bundle.get("image_payloads") or [],
     )
 
     if status_code == 200:
@@ -457,9 +486,12 @@ def client_chat():
                 "provider": payload.get("provider"),
                 "offline_mode": payload.get("offline_mode", False),
                 "fallback_reason": payload.get("fallback_reason"),
+                "model": payload.get("model"),
                 "risk_assessment": payload.get("risk_assessment"),
                 "tokenization": payload.get("tokenization"),
                 "dispatch_proof": payload.get("dispatch_proof"),
+                "attachments": payload.get("attachments"),
+                "attachment_warnings": attachment_bundle.get("warnings", []),
             }
         ), 200
 

@@ -12,7 +12,7 @@ class BaseLLMAdapter(ABC):
         self.provider_name = "base"
 
     @abstractmethod
-    def send_prompt(self, prompt: str) -> Dict[str, Any]:
+    def send_prompt(self, prompt: str, *, images: Optional[list[str]] = None) -> Dict[str, Any]:
         """Send the prompt to the LLM and return a dict containing at least:
         - 'text': str (model's generated text)
         - 'usage': dict (optional tokens usage info)
@@ -35,7 +35,7 @@ class OpenAIAdapter(BaseLLMAdapter):
     def is_available(self) -> bool:
         return self._openai is not None and bool(self.api_key)
 
-    def send_prompt(self, prompt: str) -> Dict[str, Any]:
+    def send_prompt(self, prompt: str, *, images: Optional[list[str]] = None) -> Dict[str, Any]:
         # If openai SDK/key is not available, raise an informative error.
         if not self.is_available():
             raise RuntimeError("OpenAI provider unavailable: missing SDK or OPENAI_API_KEY")
@@ -113,9 +113,12 @@ class MockAdapter(BaseLLMAdapter):
             preview = f"{preview[:180]}..."
         return f"I received your request: \"{preview}\". I can now help you turn it into a clearer, safer prompt."
 
-    def send_prompt(self, prompt: str) -> Dict[str, Any]:
+    def send_prompt(self, prompt: str, *, images: Optional[list[str]] = None) -> Dict[str, Any]:
+        attachment_note = ""
+        if images:
+            attachment_note = " I also received image attachments and treated them as case evidence context."
         return {
-            "text": self._compose_reply(prompt),
+            "text": f"{self._compose_reply(prompt)}{attachment_note}",
             "usage": {"prompt_tokens": len((prompt or "").split()), "completion_tokens": 18, "total_tokens": len((prompt or "").split()) + 18},
             "provider": "mock",
             "offline_mode": True,
@@ -129,6 +132,7 @@ class OllamaAdapter(BaseLLMAdapter):
         default_model = os.getenv("OLLAMA_DEFAULT_MODEL", "llama3.2:3b")
         super().__init__(model=model or default_model, **kwargs)
         self.provider_name = "ollama"
+        self.vision_model = os.getenv("OLLAMA_VISION_MODEL", "llava:7b")
         base_url = (os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434") or "").rstrip("/")
         base_urls_raw = (os.getenv("OLLAMA_BASE_URLS", "") or "").strip()
         candidates = []
@@ -155,12 +159,18 @@ class OllamaAdapter(BaseLLMAdapter):
         # Keep connection failures fast so chat UI does not appear frozen.
         self.connect_timeout_s = int(os.getenv("OLLAMA_CONNECT_TIMEOUT_SECONDS", "5"))
 
-    def send_prompt(self, prompt: str) -> Dict[str, Any]:
+    def send_prompt(self, prompt: str, *, images: Optional[list[str]] = None) -> Dict[str, Any]:
+        model_name = self.model
+        image_payloads = list(images or [])
+        if image_payloads and self.vision_model:
+            model_name = self.vision_model
         payload = {
-            "model": self.model,
+            "model": model_name,
             "messages": [{"role": "user", "content": prompt}],
             "stream": False,
         }
+        if image_payloads:
+            payload["messages"][0]["images"] = image_payloads
         last_exc = None
         response = None
         endpoint = ""
@@ -180,7 +190,7 @@ class OllamaAdapter(BaseLLMAdapter):
                 continue
         if response is None:
             raise RuntimeError(
-                f"Ollama request failed on all endpoints {self.base_urls}. Ensure Ollama is running and model '{self.model}' is available. Last error: {last_exc}"
+                f"Ollama request failed on all endpoints {self.base_urls}. Ensure Ollama is running and model '{model_name}' is available. Last error: {last_exc}"
             ) from last_exc
 
         body = response.json()
@@ -194,7 +204,7 @@ class OllamaAdapter(BaseLLMAdapter):
             "completion_tokens": body.get("eval_count"),
             "total_tokens": (body.get("prompt_eval_count") or 0) + (body.get("eval_count") or 0),
         }
-        return {"text": text, "usage": usage, "provider": "ollama"}
+        return {"text": text, "usage": usage, "provider": "ollama", "model": model_name}
 
 
 def get_adapter(

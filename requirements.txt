@@ -6,3 +6,5 @@ openai
 pytest
 PyJWT
 authlib
+pypdf
+python-docx
