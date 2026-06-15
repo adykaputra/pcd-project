@@ -66,8 +66,6 @@ def dashboard():
         return redirect(url_for("module3.landing"))
 
     from .dashboard import render_dashboard
-    from app.privacy_calibration import calibrate_policy_thresholds
-    from app.privacy_autotune import recommend_thresholds_from_audit
     from app.privacy_benchmark_history import get_benchmark_history_manager
     from app.privacy_policy_config import get_policy_thresholds
     from app.privacy_benchmark_dataset import list_dataset_versions
@@ -192,8 +190,18 @@ def dashboard():
     versions = list_dataset_versions()
     dataset_version = "v3" if "v3" in versions else ("v2" if "v2" in versions else "v1")
     benchmark = None
-    calibration = calibrate_policy_thresholds(dataset_version=dataset_version, split="validation")
-    autotune = recommend_thresholds_from_audit()
+    # Keep admin login/dashboard entry fast: avoid expensive calibration/autotune
+    # computations during initial page render. Dedicated buttons/endpoints trigger
+    # these analyses on demand.
+    calibration = None
+    autotune = None
+    eager_analysis = str(os.getenv("DASHBOARD_EAGER_ANALYSIS", "0")).lower() in {"1", "true", "yes"}
+    if eager_analysis:
+        from app.privacy_calibration import calibrate_policy_thresholds
+        from app.privacy_autotune import recommend_thresholds_from_audit
+
+        calibration = calibrate_policy_thresholds(dataset_version=dataset_version, split="validation")
+        autotune = recommend_thresholds_from_audit()
     history_mgr = get_benchmark_history_manager()
     history = history_mgr.list_runs(limit=20)
     return render_dashboard(
