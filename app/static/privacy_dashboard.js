@@ -26,6 +26,10 @@
   const policyBars = document.getElementById("policy-bars");
   const trendChart = document.getElementById("trend-chart");
   const liveTelemetryStatus = document.getElementById("live-telemetry-status");
+  const evidenceSessionList = document.getElementById("evidence-session-list");
+  const evidenceSessionTitle = document.getElementById("evidence-session-title");
+  const evidenceSessionSubtitle = document.getElementById("evidence-session-subtitle");
+  const evidenceSessionMessages = document.getElementById("evidence-session-messages");
   const toastNode = document.getElementById("toast");
   const viewButtons = Array.from(document.querySelectorAll(".menu-item[data-view]"));
   const sortableHeaders = Array.from(document.querySelectorAll("th.sortable[data-sort]"));
@@ -36,6 +40,8 @@
   let comparisonSortKey = "composite_score";
   let comparisonSortDir = "desc";
   let comparisonDimensions = null;
+  let evidenceThreads = Array.isArray(bootstrap.sanitizedThreads) ? bootstrap.sanitizedThreads.slice() : [];
+  let activeEvidenceThreadKey = "";
 
   function setViewer(title, payload) {
     if (!resultSummary) return;
@@ -503,6 +509,70 @@
     `;
   }
 
+  function threadKey(thread) {
+    return `${thread?.user_identity || "unknown"}::${thread?.session_id || "unknown"}`;
+  }
+
+  function renderEvidenceViewer(thread) {
+    if (!evidenceSessionTitle || !evidenceSessionSubtitle || !evidenceSessionMessages) return;
+    if (!thread) {
+      evidenceSessionTitle.textContent = "Select a session";
+      evidenceSessionSubtitle.textContent = "No session selected yet.";
+      evidenceSessionMessages.innerHTML =
+        `<p class="muted">Choose a session button on the left to open read-only redacted chat evidence.</p>`;
+      return;
+    }
+    evidenceSessionTitle.textContent = `Session ${thread.session_id || "unknown"} · ${thread.user_identity || "unknown"}`;
+    evidenceSessionSubtitle.textContent = `Read-only mode. Messages are redacted before storage and display.`;
+    const messages = Array.isArray(thread.messages) ? thread.messages : [];
+    if (messages.length === 0) {
+      evidenceSessionMessages.innerHTML = `<p class="muted">No redacted messages captured for this session.</p>`;
+      return;
+    }
+    evidenceSessionMessages.innerHTML = messages
+      .map(
+        (message) => `
+          <div class="evidence-message">
+            <div class="meta">${message.ts || "n/a"}${message.policy_action ? ` · ${message.policy_action}` : ""}</div>
+            <code>${String(message.redacted_prompt || "n/a")
+              .replaceAll("&", "&amp;")
+              .replaceAll("<", "&lt;")
+              .replaceAll(">", "&gt;")}</code>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  function renderEvidenceSessions() {
+    if (!evidenceSessionList) return;
+    if (!Array.isArray(evidenceThreads) || evidenceThreads.length === 0) {
+      evidenceSessionList.innerHTML = `<p class="muted">No session evidence yet. Start a client chat first.</p>`;
+      renderEvidenceViewer(null);
+      return;
+    }
+    if (!activeEvidenceThreadKey) {
+      activeEvidenceThreadKey = threadKey(evidenceThreads[0]);
+    }
+    evidenceSessionList.innerHTML = evidenceThreads
+      .map((thread) => {
+        const key = threadKey(thread);
+        const active = key === activeEvidenceThreadKey ? " active" : "";
+        return `
+          <button type="button" class="evidence-session-btn${active}" data-thread-key="${key}">
+            <span class="title">${thread.user_identity || "unknown"}</span>
+            <span class="meta">session ${thread.session_id || "unknown"} · ${thread.latest_ts || "n/a"}</span>
+          </button>
+        `;
+      })
+      .join("");
+    const activeThread = evidenceThreads.find((thread) => threadKey(thread) === activeEvidenceThreadKey) || evidenceThreads[0];
+    if (activeThread) {
+      activeEvidenceThreadKey = threadKey(activeThread);
+      renderEvidenceViewer(activeThread);
+    }
+  }
+
   async function refreshHistory() {
     try {
       const payload = await callApi("/privacy/benchmark/history?limit=20", { auth: true });
@@ -840,6 +910,15 @@
     }
   });
 
+  evidenceSessionList?.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target.closest(".evidence-session-btn[data-thread-key]") : null;
+    if (!target) return;
+    const key = target.getAttribute("data-thread-key") || "";
+    if (!key) return;
+    activeEvidenceThreadKey = key;
+    renderEvidenceSessions();
+  });
+
   datasetSelect?.addEventListener("change", async () => {
     try {
       await refreshComparisonOptions();
@@ -888,7 +967,7 @@
     .then(() => refreshComparisonOptions())
     .catch(() => {});
   callApi("/privacy/vault/stats", { auth: true }).then(renderVaultSummary).catch(() => {});
-  runMethodComparison().catch(() => {});
+  renderEvidenceSessions();
   window.setInterval(() => {
     refreshLiveTelemetry().catch(() => {});
   }, 30000);

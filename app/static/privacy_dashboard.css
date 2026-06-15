@@ -611,6 +611,106 @@ button:hover {
   overflow: auto;
 }
 
+.evidence-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 0.8rem;
+  margin-top: 0.7rem;
+}
+
+.evidence-session-list {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 0.5rem;
+  max-height: 560px;
+  overflow: auto;
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+}
+
+.evidence-session-btn {
+  width: 100%;
+  border: 1px solid #c8d8ef;
+  border-radius: 9px;
+  background: #fff;
+  color: #254671;
+  text-align: left;
+  padding: 0.5rem 0.55rem;
+  cursor: pointer;
+}
+
+.evidence-session-btn.active {
+  border-color: #90b6eb;
+  background: #ecf4ff;
+  color: #143b72;
+}
+
+.evidence-session-btn .title {
+  display: block;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.evidence-session-btn .meta {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.73rem;
+  color: var(--muted);
+}
+
+.evidence-viewer {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.65rem 0.75rem;
+}
+
+.evidence-viewer h4 {
+  margin: 0 0 0.2rem;
+  color: #1a3761;
+}
+
+.evidence-messages {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.6rem;
+  max-height: 560px;
+  overflow: auto;
+}
+
+.evidence-message {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #f8fbff;
+  padding: 0.5rem 0.55rem;
+}
+
+.evidence-message .meta {
+  margin-bottom: 0.3rem;
+  font-size: 0.73rem;
+  color: var(--muted);
+}
+
+.evidence-message code {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #203f69;
+  font-size: 0.83rem;
+}
+
+.audit-raw {
+  margin-top: 0.9rem;
+}
+
+.audit-raw summary {
+  cursor: pointer;
+  color: #23426d;
+  font-weight: 600;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -699,6 +799,9 @@ td {
     grid-template-columns: 1fr;
   }
   .ops-grid {
+    grid-template-columns: 1fr;
+  }
+  .evidence-layout {
     grid-template-columns: 1fr;
   }
 }

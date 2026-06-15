@@ -66,7 +66,6 @@ def dashboard():
         return redirect(url_for("module3.landing"))
 
     from .dashboard import render_dashboard
-    from app.privacy_benchmark import run_privacy_benchmark
     from app.privacy_calibration import calibrate_policy_thresholds
     from app.privacy_autotune import recommend_thresholds_from_audit
     from app.privacy_benchmark_history import get_benchmark_history_manager
@@ -189,14 +188,11 @@ def dashboard():
     
     versions = list_dataset_versions()
     dataset_version = "v3" if "v3" in versions else ("v2" if "v2" in versions else "v1")
-    benchmark = run_privacy_benchmark(dataset_version=dataset_version, split="all")
+    benchmark = None
     calibration = calibrate_policy_thresholds(dataset_version=dataset_version, split="validation")
     autotune = recommend_thresholds_from_audit()
     history_mgr = get_benchmark_history_manager()
     history = history_mgr.list_runs(limit=20)
-    if not history:
-        history_mgr.record_run(benchmark)
-        history = history_mgr.list_runs(limit=20)
     return render_dashboard(
         logs=logs,
         benchmark=benchmark,
