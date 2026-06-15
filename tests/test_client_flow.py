@@ -88,3 +88,28 @@ def test_client_chat_challenge(monkeypatch):
     body = resp.get_json()
     assert body["status"] == "challenge"
     assert "sensitive" in body["reply"].lower()
+
+
+def test_client_delete_session_removes_server_evidence(monkeypatch):
+    client = _client()
+    token = _create_user_and_get_token(client)
+    captured = {}
+
+    class _DummyManager:
+        def delete_user_session(self, *, user_identity, session_id):
+            captured["user_identity"] = user_identity
+            captured["session_id"] = session_id
+            return {"deleted_events": 3, "user_identity": user_identity, "session_id": session_id}
+
+    monkeypatch.setattr("app.module3.routes.get_manager", lambda: _DummyManager())
+
+    resp = client.delete(
+        "/client/sessions/chat-abc123",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["status"] == "ok"
+    assert body["deleted"]["deleted_events"] == 3
+    assert captured["session_id"] == "chat-abc123"
+    assert "@" in captured["user_identity"]

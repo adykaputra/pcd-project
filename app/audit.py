@@ -341,6 +341,40 @@ class AuditManager:
             "timeline": timeline,
         }
 
+    def delete_user_session(self, *, user_identity: str, session_id: str) -> Dict[str, Any]:
+        """Delete audit events belonging to a specific user chat session."""
+        normalized_identity = str(user_identity or "").strip().lower()
+        normalized_session = str(session_id or "").strip()
+        if not normalized_identity or not normalized_session:
+            return {"deleted_events": 0, "user_identity": normalized_identity, "session_id": normalized_session}
+
+        self._init_db()
+        conn = self._connect()
+        cur = conn.cursor()
+        cur.execute("SELECT id, metadata FROM audit_events WHERE metadata IS NOT NULL")
+        rows = cur.fetchall()
+
+        matching_ids: List[int] = []
+        for row in rows:
+            try:
+                metadata = json.loads(row["metadata"] or "{}")
+            except Exception:
+                metadata = {}
+            row_identity = str(metadata.get("user_identity") or "").strip().lower()
+            row_session = str(metadata.get("session_id") or "").strip()
+            if row_identity == normalized_identity and row_session == normalized_session:
+                matching_ids.append(int(row["id"]))
+
+        if matching_ids:
+            cur.executemany("DELETE FROM audit_events WHERE id = ?", [(event_id,) for event_id in matching_ids])
+        conn.commit()
+        conn.close()
+        return {
+            "deleted_events": len(matching_ids),
+            "user_identity": normalized_identity,
+            "session_id": normalized_session,
+        }
+
 
 # Singleton manager instance used by the logging handler
 _MANAGER: Optional[AuditManager] = None

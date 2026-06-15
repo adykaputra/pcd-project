@@ -133,6 +133,13 @@ body {
   overflow-y: auto;
 }
 
+.history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.34rem;
+  align-items: stretch;
+}
+
 .history-item {
   width: 100%;
   border: 1px solid #cad8ee;
@@ -147,6 +154,23 @@ body {
 .history-item.active {
   border-color: #abc4ed;
   background: #e8f1ff;
+}
+
+.history-item-delete {
+  border: 1px solid #d2ddf0;
+  border-radius: 10px;
+  background: #f5f8ff;
+  color: #4f678b;
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 64px;
+  padding: 0 0.38rem;
+}
+
+.history-item-delete:hover {
+  background: #e7efff;
+  color: #2e5a99;
 }
 
 .history-item-title {

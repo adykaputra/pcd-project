@@ -142,6 +142,7 @@ def _run_firewall_pipeline(
     model: str | None,
     challenge_override: int | None = None,
     block_override: int | None = None,
+    audit_session_id: str | None = None,
 ):
     """Run tokenization, policy evaluation, and provider dispatch."""
     requested_provider = str(provider or os.getenv("LLM_DEFAULT_PROVIDER", "mock")).strip().lower()
@@ -270,6 +271,7 @@ def _run_firewall_pipeline(
         }, 409
 
     from flask import g
+    session_ref = str(audit_session_id or getattr(g, "session_id", "") or "").strip() or None
     redaction_proof = {
         "model_input_is_tokenized": True,
         "redaction_applied": bool(tokenization["had_pii"]),
@@ -282,7 +284,7 @@ def _run_firewall_pipeline(
         "router_candidates": routing_details.get("candidates", [])[:5],
         "user_identity": getattr(g, "user_identity", None),
         "user_name": getattr(g, "user_name", None),
-        "session_id": getattr(g, "session_id", None),
+        "session_id": session_ref,
     }
     current_app.logger.info(
         "[PRIVACY_FIREWALL] Forwarding tokenized prompt to provider=%s model=%s",
@@ -304,6 +306,9 @@ def _run_firewall_pipeline(
                 "risk_score": risk.get("risk_score"),
                 "router": routing_details,
                 "dispatch_proof": redaction_proof,
+                "user_identity": getattr(g, "user_identity", None),
+                "user_name": getattr(g, "user_name", None),
+                "session_id": session_ref,
             },
         },
     )
@@ -431,12 +436,17 @@ def client_chat():
     if not isinstance(prompt, str) or not prompt.strip():
         return jsonify({"status": "denied", "message": "Prompt is required"}), 400
 
+    session_id = str(data.get("session_id") or "").strip()
+    if session_id and len(session_id) > 120:
+        return jsonify({"status": "denied", "message": "session_id is too long"}), 400
+
     provider = data.get("provider", os.getenv("LLM_DEFAULT_PROVIDER", "mock"))
     model = data.get("model")
     payload, status_code = _run_firewall_pipeline(
         inbound_prompt=prompt.strip(),
         provider=provider,
         model=model,
+        audit_session_id=session_id or None,
     )
 
     if status_code == 200:
@@ -474,6 +484,26 @@ def client_chat():
         ), 403
 
     return jsonify(payload), status_code
+
+
+@bp.route('/client/sessions/<session_id>', methods=['DELETE'])
+def client_delete_session(session_id):
+    """Delete a client chat session and related audit evidence."""
+    token = _extract_auth_token(request)
+    payload = _decode_auth_payload(token)
+    if not payload or payload.get("role") not in {"user", "admin"}:
+        return jsonify({"status": "denied", "message": "Authentication required"}), 401
+
+    session_id = str(session_id or "").strip()
+    if not session_id or len(session_id) > 120:
+        return jsonify({"status": "denied", "message": "Invalid session_id"}), 400
+
+    user_identity = str(payload.get("sub") or "").strip().lower()
+    if not user_identity:
+        return jsonify({"status": "denied", "message": "User identity missing"}), 400
+
+    deleted = get_manager().delete_user_session(user_identity=user_identity, session_id=session_id)
+    return jsonify({"status": "ok", "deleted": deleted}), 200
 
 
 @bp.route('/detokenize', methods=['POST'])

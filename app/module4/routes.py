@@ -97,6 +97,9 @@ def dashboard():
         dispatch_proof = metadata.get("dispatch_proof") if isinstance(metadata, dict) else None
         user_identity = metadata.get("user_identity") if isinstance(metadata, dict) else None
         session_id = metadata.get("session_id") if isinstance(metadata, dict) else None
+        if isinstance(dispatch_proof, dict):
+            user_identity = user_identity or dispatch_proof.get("user_identity")
+            session_id = session_id or dispatch_proof.get("session_id")
 
         logs.append({
             'id': row[0],

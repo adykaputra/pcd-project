@@ -469,6 +469,7 @@
     historyList.innerHTML = "";
     for (const session of sessions) {
       const li = document.createElement("li");
+      li.className = "history-row";
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = `history-item${session.id === activeSessionId ? " active" : ""}`;
@@ -484,7 +485,14 @@
 
       btn.appendChild(titleNode);
       btn.appendChild(timeNode);
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "history-item-delete";
+      deleteBtn.dataset.sessionId = session.id;
+      deleteBtn.setAttribute("aria-label", `Delete ${session.title || "session"}`);
+      deleteBtn.textContent = "Delete";
       li.appendChild(btn);
+      li.appendChild(deleteBtn);
       historyList.appendChild(li);
     }
   }
@@ -551,6 +559,44 @@
     renderActiveSession();
   }
 
+  async function deleteSession(sessionId) {
+    const selectedSession = sessions.find((session) => session.id === sessionId);
+    if (!selectedSession) return;
+    const confirmed = window.confirm(`Delete this chat session?\n\n"${selectedSession.title || "Untitled session"}"`);
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/client/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ message: "Unable to delete session." }));
+        throw new Error(payload?.message || "Unable to delete session.");
+      }
+    } catch (error) {
+      appendMessage("system", `Could not delete session from server evidence log: ${String(error)}`, "system");
+      setIndicator("denied");
+      return;
+    }
+
+    sessions = sessions.filter((session) => session.id !== sessionId);
+    if (!sessions.length) {
+      const starter = createSession();
+      sessions = [starter];
+      activeSessionId = starter.id;
+    } else if (activeSessionId === sessionId) {
+      activeSessionId = sessions[0].id;
+    }
+    safeSaveSessions();
+    renderHistoryList();
+    renderActiveSession();
+    setIndicator("ok");
+  }
+
   if (!form) return;
   if (window.location.search.includes("token=")) {
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -608,6 +654,14 @@
 
   clearButton?.addEventListener("click", startNewSession);
   historyList?.addEventListener("click", (event) => {
+    const deleteBtn = event.target instanceof Element ? event.target.closest(".history-item-delete") : null;
+    if (deleteBtn) {
+      const sessionId = String(deleteBtn.getAttribute("data-session-id") || "");
+      if (sessionId) {
+        deleteSession(sessionId).catch(() => {});
+      }
+      return;
+    }
     handleSessionSelection(event.target);
   });
   logoutButton?.addEventListener("click", async (event) => {
@@ -664,6 +718,7 @@
         signal: controller.signal,
         body: JSON.stringify({
           prompt: modelPrompt,
+          session_id: activeSessionId,
           provider: (providerInput?.value || "ollama").trim(),
           model: (modelInput?.value || "").trim() || undefined,
         }),
