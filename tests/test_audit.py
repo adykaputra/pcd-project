@@ -124,9 +124,21 @@ def test_evidence_endpoint_shows_cookie_authenticated_user_sessions(client):
     assert evidence.status_code == 200
     payload = evidence.get_json()
     assert payload.get("status") == "ok"
+    sessions = payload.get("sessions", [])
+    target_session = next((row for row in sessions if row.get("session_id") == session_id), None)
+    assert target_session is not None
+    assert target_session.get("user_identity") == user_email
+    assert "open_url" in target_session
     threads = payload.get("sanitized_threads", [])
     target = next((thread for thread in threads if thread.get("session_id") == session_id), None)
     assert target is not None
     assert target.get("user_identity") == user_email
     assert isinstance(target.get("messages"), list)
+    assert any((msg.get("role") == "assistant") for msg in (target.get("messages") or []))
+
+    viewer = client.get(target_session["open_url"], headers={"Authorization": f"Bearer {admin_token}"})
+    assert viewer.status_code == 200
+    body = viewer.get_data(as_text=True)
+    assert "Read-only evidence mode" in body
+    assert session_id in body
 

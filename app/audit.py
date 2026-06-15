@@ -402,6 +402,7 @@ class AuditHandler(logging.Handler):
         "PII_REDACTED",
         "PII_TOKENIZED",
         "PII_DETOKENIZED",
+        "CHAT_SESSION_REDACTED",
         "PRIVACY_POLICY_BLOCK",
         "PRIVACY_POLICY_CHALLENGE",
         "LLM_TOKEN_USAGE",

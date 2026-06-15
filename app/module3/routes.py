@@ -74,6 +74,44 @@ def _build_dlp_challenge_reply(payload: dict) -> str:
     return guidance
 
 
+def _record_redacted_chat_turn(
+    *,
+    user_identity: str,
+    user_name: str,
+    session_id: str,
+    turn_role: str,
+    content: str,
+    policy_action: str | None,
+    status: str,
+    provider: str | None = None,
+):
+    """Persist chat transcript turns in redacted form for admin evidence viewer."""
+    safe_content = str(content or "").strip()
+    if not safe_content:
+        return
+    from flask import g
+
+    current_app.logger.info(
+        "[CLIENT_CHAT] Recorded redacted chat turn for evidence viewer",
+        extra={
+            "event_type": "CHAT_SESSION_REDACTED",
+            "request_id": getattr(g, "request_id", None),
+            "user_role": getattr(g, "user_role", None),
+            "endpoint": request.path,
+            "metadata": {
+                "user_identity": user_identity,
+                "user_name": user_name,
+                "session_id": session_id or getattr(g, "session_id", None),
+                "turn_role": turn_role,
+                "content": safe_content[:5000],
+                "policy_action": policy_action,
+                "status": status,
+                "provider": provider,
+            },
+        },
+    )
+
+
 def _decode_bearer_token(req):
     auth = req.headers.get("Authorization") or ""
     if auth.startswith("Bearer "):
@@ -293,6 +331,11 @@ def _run_firewall_pipeline(
             "status": "denied",
             "message": "Prompt blocked by privacy policy engine.",
             "risk_assessment": risk,
+            "safe_prompt_preview": (tokenized_prompt[:280] + "...") if len(tokenized_prompt) > 280 else tokenized_prompt,
+            "tokenization": {
+                "applied": tokenization.get("had_pii"),
+                "token_counts": tokenization.get("token_counts"),
+            },
         }, 403
 
     if risk["policy_action"] == "challenge":
@@ -516,6 +559,8 @@ def client_chat():
 
     provider = data.get("provider", os.getenv("LLM_DEFAULT_PROVIDER", "mock"))
     model = data.get("model")
+    user_identity = str(payload.get("sub") or "").strip().lower()
+    user_name = str(payload.get("name") or "").strip() or user_identity
     if attachment_bundle.get("image_payloads") and str(provider).strip().lower() == "ollama":
         model = model or os.getenv("OLLAMA_VISION_MODEL", "llava:7b")
     extracted_attachment_text = str(attachment_bundle.get("extracted_text") or "").strip()
@@ -532,6 +577,31 @@ def client_chat():
     )
 
     if status_code == 200:
+        redacted_user_prompt = (
+            ((payload.get("dispatch_proof") or {}).get("tokenized_prompt_full"))
+            or ((payload.get("dispatch_proof") or {}).get("tokenized_prompt_preview"))
+            or composed_prompt
+        )
+        _record_redacted_chat_turn(
+            user_identity=user_identity,
+            user_name=user_name,
+            session_id=session_id,
+            turn_role="user",
+            content=redacted_user_prompt,
+            policy_action=(payload.get("risk_assessment") or {}).get("policy_action"),
+            status="ok",
+            provider=payload.get("provider"),
+        )
+        _record_redacted_chat_turn(
+            user_identity=user_identity,
+            user_name=user_name,
+            session_id=session_id,
+            turn_role="assistant",
+            content=str(payload.get("response") or ""),
+            policy_action=(payload.get("risk_assessment") or {}).get("policy_action"),
+            status="ok",
+            provider=payload.get("provider"),
+        )
         return jsonify(
             {
                 "status": "ok",
@@ -549,10 +619,31 @@ def client_chat():
         ), 200
 
     if status_code == 409:
+        challenge_reply = _build_dlp_challenge_reply(payload)
+        _record_redacted_chat_turn(
+            user_identity=user_identity,
+            user_name=user_name,
+            session_id=session_id,
+            turn_role="user",
+            content=payload.get("safe_prompt_preview") or composed_prompt,
+            policy_action=(payload.get("risk_assessment") or {}).get("policy_action"),
+            status="challenge",
+            provider=provider,
+        )
+        _record_redacted_chat_turn(
+            user_identity=user_identity,
+            user_name=user_name,
+            session_id=session_id,
+            turn_role="assistant",
+            content=challenge_reply,
+            policy_action=(payload.get("risk_assessment") or {}).get("policy_action"),
+            status="challenge",
+            provider=provider,
+        )
         return jsonify(
             {
                 "status": "challenge",
-                "reply": _build_dlp_challenge_reply(payload),
+                "reply": challenge_reply,
                 "message": payload.get("message"),
                 "risk_assessment": payload.get("risk_assessment"),
                 "safe_prompt_preview": payload.get("safe_prompt_preview"),
@@ -561,10 +652,34 @@ def client_chat():
         ), 409
 
     if status_code == 403:
+        denied_reply = (
+            "This DLP request is blocked because the privacy risk is too high. "
+            "Remove direct identifiers and resubmit a sanitized case summary."
+        )
+        _record_redacted_chat_turn(
+            user_identity=user_identity,
+            user_name=user_name,
+            session_id=session_id,
+            turn_role="user",
+            content=payload.get("safe_prompt_preview") or composed_prompt,
+            policy_action=(payload.get("risk_assessment") or {}).get("policy_action"),
+            status="denied",
+            provider=provider,
+        )
+        _record_redacted_chat_turn(
+            user_identity=user_identity,
+            user_name=user_name,
+            session_id=session_id,
+            turn_role="assistant",
+            content=denied_reply,
+            policy_action=(payload.get("risk_assessment") or {}).get("policy_action"),
+            status="denied",
+            provider=provider,
+        )
         return jsonify(
             {
                 "status": "denied",
-                "reply": "This DLP request is blocked because the privacy risk is too high. Remove direct identifiers and resubmit a sanitized case summary.",
+                "reply": denied_reply,
                 "message": payload.get("message"),
                 "risk_assessment": payload.get("risk_assessment"),
             }

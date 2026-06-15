@@ -26,10 +26,7 @@
   const policyBars = document.getElementById("policy-bars");
   const trendChart = document.getElementById("trend-chart");
   const liveTelemetryStatus = document.getElementById("live-telemetry-status");
-  const evidenceSessionList = document.getElementById("evidence-session-list");
-  const evidenceSessionTitle = document.getElementById("evidence-session-title");
-  const evidenceSessionSubtitle = document.getElementById("evidence-session-subtitle");
-  const evidenceSessionMessages = document.getElementById("evidence-session-messages");
+  const evidenceSessionTableBody = document.getElementById("evidence-session-table-body");
   const evidenceRefreshButton = document.getElementById("btn-evidence-refresh");
   const toastNode = document.getElementById("toast");
   const viewButtons = Array.from(document.querySelectorAll(".menu-item[data-view]"));
@@ -42,8 +39,7 @@
   let comparisonSortDir = "desc";
   let comparisonDimensions = null;
   let activeView = "proof";
-  let evidenceThreads = Array.isArray(bootstrap.sanitizedThreads) ? bootstrap.sanitizedThreads.slice() : [];
-  let activeEvidenceThreadKey = "";
+  let evidenceSessions = [];
 
   function setViewer(title, payload) {
     if (!resultSummary) return;
@@ -512,70 +508,46 @@
     `;
   }
 
-  function threadKey(thread) {
-    return `${thread?.user_identity || "unknown"}::${thread?.session_id || "unknown"}`;
-  }
-
-  function renderEvidenceViewer(thread) {
-    if (!evidenceSessionTitle || !evidenceSessionSubtitle || !evidenceSessionMessages) return;
-    if (!thread) {
-      evidenceSessionTitle.textContent = "Select a session";
-      evidenceSessionSubtitle.textContent = "No session selected yet.";
-      evidenceSessionMessages.innerHTML =
-        `<p class="muted">Choose a session button on the left to open read-only redacted chat evidence.</p>`;
-      return;
-    }
-    const displayName = thread.user_name || thread.user_identity || "unknown";
-    evidenceSessionTitle.textContent = `${displayName} · Session ${thread.session_id || "unknown"}`;
-    evidenceSessionSubtitle.textContent = `Read-only mode. Messages are redacted before storage and display.`;
-    const messages = Array.isArray(thread.messages) ? thread.messages : [];
-    if (messages.length === 0) {
-      evidenceSessionMessages.innerHTML = `<p class="muted">No redacted messages captured for this session.</p>`;
-      return;
-    }
-    evidenceSessionMessages.innerHTML = messages
-      .map(
-        (message) => `
-          <div class="evidence-message">
-            <div class="meta">${message.ts || "n/a"}${message.policy_action ? ` · ${message.policy_action}` : ""}</div>
-            <code>${String(message.redacted_prompt || "n/a")
-              .replaceAll("&", "&amp;")
-              .replaceAll("<", "&lt;")
-              .replaceAll(">", "&gt;")}</code>
-          </div>
-        `
-      )
-      .join("");
-  }
-
   function renderEvidenceSessions() {
-    if (!evidenceSessionList) return;
-    if (!Array.isArray(evidenceThreads) || evidenceThreads.length === 0) {
-      evidenceSessionList.innerHTML = `<p class="muted">No session evidence yet. Start a client chat first.</p>`;
-      renderEvidenceViewer(null);
+    if (!evidenceSessionTableBody) return;
+    if (!Array.isArray(evidenceSessions) || evidenceSessions.length === 0) {
+      evidenceSessionTableBody.innerHTML =
+        `<tr><td colspan="6" class="muted">No session evidence yet. Start a client chat first.</td></tr>`;
       return;
     }
-    if (!activeEvidenceThreadKey) {
-      activeEvidenceThreadKey = threadKey(evidenceThreads[0]);
-    }
-    evidenceSessionList.innerHTML = evidenceThreads
-      .map((thread) => {
-        const key = threadKey(thread);
-        const active = key === activeEvidenceThreadKey ? " active" : "";
-        const displayName = thread.user_name || thread.user_identity || "unknown";
+    evidenceSessionTableBody.innerHTML = evidenceSessions
+      .map((session) => {
+        const displayName = session.user_name || session.user_identity || "unknown";
+        const safeUser = String(displayName)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+        const safeSession = String(session.session_id || "unknown")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+        const safeTs = String(session.latest_ts || "n/a")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+        const turns = Number(session.turns || 0);
+        const messageCount = Number(session.message_count || 0);
+        const openUrl = String(session.open_url || "#")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
         return `
-          <button type="button" class="evidence-session-btn${active}" data-thread-key="${key}">
-            <span class="title">${displayName}</span>
-            <span class="meta">session ${thread.session_id || "unknown"} · ${thread.latest_ts || "n/a"}</span>
-          </button>
+          <tr>
+            <td>${safeUser}</td>
+            <td>${safeSession}</td>
+            <td>${safeTs}</td>
+            <td>${turns}</td>
+            <td>${messageCount}</td>
+            <td><a class="signout-link" href="${openUrl}">Open Viewer</a></td>
+          </tr>
         `;
       })
       .join("");
-    const activeThread = evidenceThreads.find((thread) => threadKey(thread) === activeEvidenceThreadKey) || evidenceThreads[0];
-    if (activeThread) {
-      activeEvidenceThreadKey = threadKey(activeThread);
-      renderEvidenceViewer(activeThread);
-    }
   }
 
   async function refreshHistory() {
@@ -591,11 +563,7 @@
   async function refreshEvidenceSessions() {
     try {
       const payload = await callApi("/audit/evidence?limit=400", { auth: true });
-      evidenceThreads = Array.isArray(payload?.sanitized_threads) ? payload.sanitized_threads : [];
-      const stillExists = evidenceThreads.some((thread) => threadKey(thread) === activeEvidenceThreadKey);
-      if (!stillExists) {
-        activeEvidenceThreadKey = "";
-      }
+      evidenceSessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
       renderEvidenceSessions();
       return payload;
     } catch (err) {
@@ -929,15 +897,6 @@
     } else {
       showToast("Live telemetry refresh failed.", "error");
     }
-  });
-
-  evidenceSessionList?.addEventListener("click", (event) => {
-    const target = event.target instanceof Element ? event.target.closest(".evidence-session-btn[data-thread-key]") : null;
-    if (!target) return;
-    const key = target.getAttribute("data-thread-key") || "";
-    if (!key) return;
-    activeEvidenceThreadKey = key;
-    renderEvidenceSessions();
   });
 
   evidenceRefreshButton?.addEventListener("click", async () => {

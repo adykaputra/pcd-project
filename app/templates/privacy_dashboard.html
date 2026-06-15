@@ -391,51 +391,29 @@
 
             <section id="panel-audit" class="panel wide view-section" data-view="evidence">
                 <h3>Evidence Log (Redacted Read-only Session Viewer)</h3>
-                <p class="muted">Select any user session to inspect exactly what was sent to the model. This view is read-only and always redacted (admin cannot see raw PII).</p>
+                <p class="muted">This list groups by whole user session (not per single chat line). Click Open Viewer to inspect the full redacted transcript in dedicated viewer mode.</p>
                 <div class="action-row">
                     <button id="btn-evidence-refresh" type="button">Refresh Session Evidence</button>
                 </div>
-                <div class="evidence-layout">
-                    <aside id="evidence-session-list" class="evidence-session-list"></aside>
-                    <div class="evidence-viewer">
-                        <h4 id="evidence-session-title">Select a session</h4>
-                        <p id="evidence-session-subtitle" class="muted">No session selected yet.</p>
-                        <div id="evidence-session-messages" class="evidence-messages">
-                            <p class="muted">Choose a session button on the left to open read-only redacted chat evidence.</p>
-                        </div>
-                    </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Session ID</th>
+                                <th>Last Activity</th>
+                                <th>Turns</th>
+                                <th>Messages</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="evidence-session-table-body">
+                            <tr>
+                                <td colspan="6" class="muted">No session evidence yet. Start a client chat first.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <details class="audit-raw">
-                    <summary>Show raw audit events table</summary>
-                    <div class="table-wrap">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Timestamp</th>
-                                    <th>Event</th>
-                                    <th>Role</th>
-                                    <th>User</th>
-                                    <th>Session</th>
-                                    <th>Counts</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in logs %}
-                                <tr>
-                                    <td>{{ row.id }}</td>
-                                    <td>{{ row.ts }}</td>
-                                    <td>{{ row.event_type }}</td>
-                                    <td>{{ row.user_role }}</td>
-                                    <td>{{ row.user_identity or "n/a" }}</td>
-                                    <td>{{ row.session_id or "n/a" }}</td>
-                                    <td>{{ row.count_id }}/{{ row.count_phone }}/{{ row.count_email }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </details>
             </section>
         </main>
     </div>
