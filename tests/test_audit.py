@@ -1,6 +1,7 @@
 import pytest
 from app import create_app
 from datetime import datetime, timedelta
+from uuid import uuid4
 
 
 @pytest.fixture
@@ -94,4 +95,38 @@ def test_live_telemetry_endpoint_returns_recent_policy_activity(client):
     assert counts.get('challenge', 0) >= 1
     assert counts.get('block', 0) >= 1
     assert isinstance(summary.get('timeline'), list)
+
+
+def test_evidence_endpoint_shows_cookie_authenticated_user_sessions(client):
+    user_email = f"evidence-{uuid4().hex[:8]}@example.com"
+    signup = client.post(
+        "/signup",
+        json={"name": "Evidence User", "email": user_email, "password": "strongpass123"},
+    )
+    assert signup.status_code == 201
+
+    login = client.post("/login", json={"email": user_email, "password": "strongpass123"})
+    assert login.status_code == 200
+
+    session_id = f"demo-session-{uuid4().hex[:6]}"
+    chat = client.post(
+        "/client/chat",
+        json={
+            "prompt": "Summarize this defect report timeline for me.",
+            "provider": "mock",
+            "session_id": session_id,
+        },
+    )
+    assert chat.status_code == 200
+
+    admin_token = _get_admin_token(client)
+    evidence = client.get("/audit/evidence", headers={"Authorization": f"Bearer {admin_token}"})
+    assert evidence.status_code == 200
+    payload = evidence.get_json()
+    assert payload.get("status") == "ok"
+    threads = payload.get("sanitized_threads", [])
+    target = next((thread for thread in threads if thread.get("session_id") == session_id), None)
+    assert target is not None
+    assert target.get("user_identity") == user_email
+    assert isinstance(target.get("messages"), list)
 

@@ -30,6 +30,7 @@
   const evidenceSessionTitle = document.getElementById("evidence-session-title");
   const evidenceSessionSubtitle = document.getElementById("evidence-session-subtitle");
   const evidenceSessionMessages = document.getElementById("evidence-session-messages");
+  const evidenceRefreshButton = document.getElementById("btn-evidence-refresh");
   const toastNode = document.getElementById("toast");
   const viewButtons = Array.from(document.querySelectorAll(".menu-item[data-view]"));
   const sortableHeaders = Array.from(document.querySelectorAll("th.sortable[data-sort]"));
@@ -522,7 +523,8 @@
         `<p class="muted">Choose a session button on the left to open read-only redacted chat evidence.</p>`;
       return;
     }
-    evidenceSessionTitle.textContent = `Session ${thread.session_id || "unknown"} · ${thread.user_identity || "unknown"}`;
+    const displayName = thread.user_name || thread.user_identity || "unknown";
+    evidenceSessionTitle.textContent = `${displayName} · Session ${thread.session_id || "unknown"}`;
     evidenceSessionSubtitle.textContent = `Read-only mode. Messages are redacted before storage and display.`;
     const messages = Array.isArray(thread.messages) ? thread.messages : [];
     if (messages.length === 0) {
@@ -558,9 +560,10 @@
       .map((thread) => {
         const key = threadKey(thread);
         const active = key === activeEvidenceThreadKey ? " active" : "";
+        const displayName = thread.user_name || thread.user_identity || "unknown";
         return `
           <button type="button" class="evidence-session-btn${active}" data-thread-key="${key}">
-            <span class="title">${thread.user_identity || "unknown"}</span>
+            <span class="title">${displayName}</span>
             <span class="meta">session ${thread.session_id || "unknown"} · ${thread.latest_ts || "n/a"}</span>
           </button>
         `;
@@ -579,6 +582,22 @@
       renderTrendChart(payload.history || []);
       return payload;
     } catch (err) {
+      return null;
+    }
+  }
+
+  async function refreshEvidenceSessions() {
+    try {
+      const payload = await callApi("/audit/evidence?limit=400", { auth: true });
+      evidenceThreads = Array.isArray(payload?.sanitized_threads) ? payload.sanitized_threads : [];
+      const stillExists = evidenceThreads.some((thread) => threadKey(thread) === activeEvidenceThreadKey);
+      if (!stillExists) {
+        activeEvidenceThreadKey = "";
+      }
+      renderEvidenceSessions();
+      return payload;
+    } catch (err) {
+      renderEvidenceSessions();
       return null;
     }
   }
@@ -919,6 +938,15 @@
     renderEvidenceSessions();
   });
 
+  evidenceRefreshButton?.addEventListener("click", async () => {
+    const payload = await refreshEvidenceSessions();
+    if (payload) {
+      showToast("Evidence sessions refreshed.", "success");
+    } else {
+      showToast("Evidence refresh failed.", "error");
+    }
+  });
+
   datasetSelect?.addEventListener("change", async () => {
     try {
       await refreshComparisonOptions();
@@ -947,7 +975,13 @@
   });
 
   viewButtons.forEach((button) => {
-    button.addEventListener("click", () => setActiveView(button.dataset.view || "prompt"));
+    button.addEventListener("click", async () => {
+      const nextView = button.dataset.view || "prompt";
+      setActiveView(nextView);
+      if (nextView === "evidence") {
+        await refreshEvidenceSessions();
+      }
+    });
   });
 
   logoutButton?.addEventListener("click", async (event) => {
@@ -967,7 +1001,9 @@
     .then(() => refreshComparisonOptions())
     .catch(() => {});
   callApi("/privacy/vault/stats", { auth: true }).then(renderVaultSummary).catch(() => {});
-  renderEvidenceSessions();
+  refreshEvidenceSessions().catch(() => {
+    renderEvidenceSessions();
+  });
   window.setInterval(() => {
     refreshLiveTelemetry().catch(() => {});
   }, 30000);

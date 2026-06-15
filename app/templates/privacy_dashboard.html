@@ -392,6 +392,9 @@
             <section id="panel-audit" class="panel wide view-section" data-view="evidence">
                 <h3>Evidence Log (Redacted Read-only Session Viewer)</h3>
                 <p class="muted">Select any user session to inspect exactly what was sent to the model. This view is read-only and always redacted (admin cannot see raw PII).</p>
+                <div class="action-row">
+                    <button id="btn-evidence-refresh" type="button">Refresh Session Evidence</button>
+                </div>
                 <div class="evidence-layout">
                     <aside id="evidence-session-list" class="evidence-session-list"></aside>
                     <div class="evidence-viewer">

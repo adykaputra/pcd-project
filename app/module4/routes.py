@@ -28,6 +28,63 @@ def _is_admin_request(req):
     role = req.headers.get('X-User-Role') or req.args.get('role')
     return role == 'admin'
 
+
+def _build_evidence_from_logs(logs, *, max_recent: int = 8, max_threads: int = 20):
+    recent_sessions = []
+    seen = set()
+    for log in logs:
+        identity = (log.get("user_identity") or "").strip() if isinstance(log.get("user_identity"), str) else ""
+        session_id = (log.get("session_id") or "").strip() if isinstance(log.get("session_id"), str) else ""
+        if not identity or not session_id or identity == "unknown" or session_id == "unknown":
+            continue
+        key = (identity, session_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        recent_sessions.append(
+            {
+                "ts": log.get("ts"),
+                "user_identity": identity,
+                "user_name": log.get("user_name"),
+                "session_id": session_id,
+                "event_type": log.get("event_type"),
+            }
+        )
+        if len(recent_sessions) >= max_recent:
+            break
+
+    thread_map = {}
+    for log in logs:
+        proof = log.get("dispatch_proof")
+        if not isinstance(proof, dict):
+            continue
+        identity = (log.get("user_identity") or "unknown").strip() if isinstance(log.get("user_identity"), str) else "unknown"
+        session_id = (log.get("session_id") or "unknown").strip() if isinstance(log.get("session_id"), str) else "unknown"
+        if identity == "unknown" or session_id == "unknown":
+            continue
+        key = f"{identity}::{session_id}"
+        if key not in thread_map:
+            thread_map[key] = {
+                "user_identity": identity,
+                "user_name": log.get("user_name"),
+                "session_id": session_id,
+                "latest_ts": log.get("ts"),
+                "messages": [],
+            }
+        thread_map[key]["messages"].append(
+            {
+                "ts": log.get("ts"),
+                "redacted_prompt": proof.get("tokenized_prompt_full") or proof.get("tokenized_prompt_preview"),
+                "policy_action": ((log.get("metadata") or {}).get("risk_assessment") or {}).get("policy_action"),
+            }
+        )
+    sanitized_threads = sorted(
+        thread_map.values(),
+        key=lambda item: str(item.get("latest_ts") or ""),
+        reverse=True,
+    )
+    return recent_sessions[:max_recent], sanitized_threads[:max_threads]
+
 @bp.route('/summary', methods=['GET'])
 def summary():
     if not _is_admin_request(request):
@@ -94,9 +151,11 @@ def dashboard():
             metadata = {}
         dispatch_proof = metadata.get("dispatch_proof") if isinstance(metadata, dict) else None
         user_identity = metadata.get("user_identity") if isinstance(metadata, dict) else None
+        user_name = metadata.get("user_name") if isinstance(metadata, dict) else None
         session_id = metadata.get("session_id") if isinstance(metadata, dict) else None
         if isinstance(dispatch_proof, dict):
             user_identity = user_identity or dispatch_proof.get("user_identity")
+            user_name = user_name or dispatch_proof.get("user_name")
             session_id = session_id or dispatch_proof.get("session_id")
 
         logs.append({
@@ -118,6 +177,7 @@ def dashboard():
             'metadata': metadata,
             'dispatch_proof': dispatch_proof,
             'user_identity': user_identity,
+            'user_name': user_name,
             'session_id': session_id,
         })
 
@@ -135,57 +195,7 @@ def dashboard():
         None,
     )
 
-    recent_sessions = []
-    seen = set()
-    for log in logs:
-        identity = (log.get("user_identity") or "").strip() if isinstance(log.get("user_identity"), str) else ""
-        session_id = (log.get("session_id") or "").strip() if isinstance(log.get("session_id"), str) else ""
-        if not identity or not session_id or identity == "unknown" or session_id == "unknown":
-            continue
-        key = (identity, session_id)
-        if key in seen:
-            continue
-        seen.add(key)
-        recent_sessions.append(
-            {
-                "ts": log.get("ts"),
-                "user_identity": identity,
-                "session_id": session_id,
-                "event_type": log.get("event_type"),
-            }
-        )
-        if len(recent_sessions) >= 8:
-            break
-
-    thread_map = {}
-    for log in logs:
-        proof = log.get("dispatch_proof")
-        if not isinstance(proof, dict):
-            continue
-        identity = (log.get("user_identity") or "unknown").strip() if isinstance(log.get("user_identity"), str) else "unknown"
-        session_id = (log.get("session_id") or "unknown").strip() if isinstance(log.get("session_id"), str) else "unknown"
-        if identity == "unknown" or session_id == "unknown":
-            continue
-        key = f"{identity}::{session_id}"
-        if key not in thread_map:
-            thread_map[key] = {
-                "user_identity": identity,
-                "session_id": session_id,
-                "latest_ts": log.get("ts"),
-                "messages": [],
-            }
-        thread_map[key]["messages"].append(
-            {
-                "ts": log.get("ts"),
-                "redacted_prompt": proof.get("tokenized_prompt_full") or proof.get("tokenized_prompt_preview"),
-                "policy_action": ((log.get("metadata") or {}).get("risk_assessment") or {}).get("policy_action"),
-            }
-        )
-    sanitized_threads = sorted(
-        thread_map.values(),
-        key=lambda item: str(item.get("latest_ts") or ""),
-        reverse=True,
-    )
+    recent_sessions, sanitized_threads = _build_evidence_from_logs(logs, max_recent=8, max_threads=20)
     
     versions = list_dataset_versions()
     dataset_version = "v3" if "v3" in versions else ("v2" if "v2" in versions else "v1")
@@ -218,6 +228,57 @@ def dashboard():
         recent_sessions=recent_sessions,
         sanitized_threads=sanitized_threads[:20],
     ), 200
+
+
+@bp.route('/evidence', methods=['GET'])
+def evidence():
+    if not _is_admin_request(request):
+        return jsonify({"status": "denied", "message": "Admin role required"}), 403
+
+    limit = max(50, min(800, int(request.args.get("limit", 300))))
+    mgr = get_manager()
+    conn = mgr._connect()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT ts, event_type, metadata
+        FROM audit_events
+        ORDER BY ts DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    logs = []
+    for row in rows:
+        try:
+            metadata = json.loads(row["metadata"] or "{}")
+        except Exception:
+            metadata = {}
+        dispatch_proof = metadata.get("dispatch_proof") if isinstance(metadata, dict) else None
+        user_identity = metadata.get("user_identity") if isinstance(metadata, dict) else None
+        user_name = metadata.get("user_name") if isinstance(metadata, dict) else None
+        session_id = metadata.get("session_id") if isinstance(metadata, dict) else None
+        if isinstance(dispatch_proof, dict):
+            user_identity = user_identity or dispatch_proof.get("user_identity")
+            user_name = user_name or dispatch_proof.get("user_name")
+            session_id = session_id or dispatch_proof.get("session_id")
+        logs.append(
+            {
+                "ts": row["ts"],
+                "event_type": row["event_type"],
+                "metadata": metadata,
+                "dispatch_proof": dispatch_proof,
+                "user_identity": user_identity,
+                "user_name": user_name,
+                "session_id": session_id,
+            }
+        )
+
+    recent_sessions, sanitized_threads = _build_evidence_from_logs(logs, max_recent=20, max_threads=60)
+    return jsonify({"status": "ok", "recent_sessions": recent_sessions, "sanitized_threads": sanitized_threads}), 200
 
 
 # Immutability note:
