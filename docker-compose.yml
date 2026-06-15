@@ -12,6 +12,8 @@ services:
       - FLASK_APP=app:create_app
       - FLASK_ENV=development
       - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:-mock}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@privacyfirewall.local}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin-pass}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_DEFAULT_MODEL=${OPENAI_DEFAULT_MODEL:-gpt-4o-mini}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}

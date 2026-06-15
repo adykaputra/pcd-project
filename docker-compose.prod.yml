@@ -9,6 +9,8 @@ services:
       - PYTHONPATH=/usr/src/app
       - FLASK_ENV=production
       - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:-mock}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@privacyfirewall.local}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin-pass}
       - JWT_SECRET=${JWT_SECRET}
       - AUDIT_HMAC_KEY=${AUDIT_HMAC_KEY}
       - PII_VAULT_KEY=${PII_VAULT_KEY}
