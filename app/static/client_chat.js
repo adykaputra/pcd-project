@@ -38,16 +38,16 @@
 
   const WORKSPACE_CONFIG = {
     current: {
-      label: "Current Case",
+      label: "Live Thread",
       prompt: "",
       suggestions: [
-        "Create a clean DLP case summary structure I can reuse.",
+        "Create a clean defect-liability case summary structure I can reuse.",
         "What should be in a defect report before escalation?",
         "Give me a short handover note for an unresolved defect case.",
       ],
     },
     guidelines: {
-      label: "DLP Guidelines",
+      label: "Workflow Playbook",
       prompt: "Give me a practical checklist for managing Defect Liability Period communication with clients and contractors.",
       suggestions: [
         "List 8 practical DLP communication rules for project teams.",
@@ -56,7 +56,7 @@
       ],
     },
     assessment: {
-      label: "Liability Assessment",
+      label: "Exposure Triage",
       prompt: "Assess this defect case and explain urgency, liability risk, and recommended next action.",
       suggestions: [
         "Evaluate this case using low/medium/high legal urgency levels.",
@@ -65,7 +65,7 @@
       ],
     },
     scanner: {
-      label: "Clause Scanner",
+      label: "Clause Mapper",
       prompt: "Scan this defect report and extract key timeline facts, parties involved, and required actions.",
       suggestions: [
         "Identify key incident facts and missing details in this report.",
@@ -74,7 +74,7 @@
       ],
     },
     notice: {
-      label: "Notice Letter",
+      label: "Response Drafting",
       prompt: "Draft a formal DLP notice letter for contractor response within a defined timeline.",
       suggestions: [
         "Draft a notice with issue summary, expected remedy, and deadline.",
@@ -95,7 +95,7 @@
   }
 
   function defaultSystemMessage() {
-    return `Hi ${displayName}, I am your DLP legal support assistant. I can help with defect case analysis, notices, and action planning.`;
+    return `Hi ${displayName}, I am your defect-liability support assistant. I can help with case analysis, notices, and action planning.`;
   }
 
   function createSession() {
@@ -187,12 +187,12 @@
     if (chatTitle) {
       const active = workspaceButtons.find((btn) => btn.dataset.workspace === activeWorkspace);
       if (active && activeWorkspace !== "current") {
-        chatTitle.textContent = `DLP Legal Assistant · ${active.textContent?.trim() || "Workspace"}`;
+        chatTitle.textContent = `Defect Liability Workspace · ${active.textContent?.trim() || "Workspace"}`;
       } else {
-        chatTitle.textContent = "DLP Legal Assistant";
+        chatTitle.textContent = "Defect Liability Workspace";
       }
     }
-    const label = WORKSPACE_CONFIG[activeWorkspace]?.label || "Current Case";
+    const label = WORKSPACE_CONFIG[activeWorkspace]?.label || "Live Thread";
     if (workspaceStatus) {
       workspaceStatus.textContent = `Mode: ${label.toLowerCase()}`;
     }

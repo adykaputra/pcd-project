@@ -35,7 +35,7 @@ def test_client_portal_page_renders():
     resp = client.get(f"/client?token={token}")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
-    assert "DLP Legal Assistant" in body
+    assert "Defect Liability Workspace" in body
     assert "Aisyah" in body
 
 

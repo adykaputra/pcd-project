@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DLP Legal Assistant - Client Chat</title>
+    <title>CaseDesk Copilot - Client Chat</title>
     <link rel="stylesheet" href="/static/client_chat.css" />
 </head>
 <body>
@@ -12,7 +12,7 @@
             <div class="sidebar-header brand-block">
                 <div class="brand-icon" aria-hidden="true"></div>
                 <div>
-                    <h1>DLP Advisor</h1>
+                    <h1>CaseDesk Copilot</h1>
                     <p>Welcome, <strong>{{ display_name }}</strong></p>
                 </div>
             </div>
@@ -20,22 +20,22 @@
             <section class="sidebar-section">
                 <h3>Workspace</h3>
                 <ul class="workspace-nav">
-                    <li><button type="button" class="workspace-btn active" data-workspace="current">Current Case</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="guidelines" data-prompt="Give me a checklist to manage Defect Liability Period (DLP) communication with a client.">DLP Guidelines</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="assessment" data-prompt="Assess this defect case and classify urgency, liability risk, and recommended next action.">Liability Assessment</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="scanner" data-prompt="Scan this defect report and extract the key incident facts for a DLP case file.">Clause Scanner</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="notice" data-prompt="Draft a formal DLP notice letter for contractor response within the required timeline.">Notice Letter</button></li>
+                    <li><button type="button" class="workspace-btn active" data-workspace="current">Live Thread</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="guidelines" data-prompt="Give me a checklist to manage Defect Liability Period communication with a client.">Workflow Playbook</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="assessment" data-prompt="Assess this defect case and classify urgency, liability risk, and recommended next action.">Exposure Triage</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="scanner" data-prompt="Scan this defect report and extract key incident facts for the case record.">Clause Mapper</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="notice" data-prompt="Draft a formal defect notice letter for contractor response within the required timeline.">Response Drafting</button></li>
                 </ul>
             </section>
             <section class="sidebar-section history">
-                <h3>Recent cases</h3>
+                <h3>Session log</h3>
                 <ul id="history-list" class="history-list"></ul>
             </section>
             <div class="sidebar-section">
-                <h3>Session status</h3>
+                <h3>Assistant status</h3>
                 <div class="sidebar-badges">
-                    <span class="pill">DLP assistant active</span>
-                    <span class="pill">Ollama local mode</span>
+                    <span class="pill">Case mode online</span>
+                    <span class="pill">Local model route</span>
                 </div>
             </div>
             <div class="sidebar-section muted-copy">
@@ -51,7 +51,7 @@
 
         <main class="chat-main">
             <header class="chat-topbar">
-                <h2>DLP Legal Assistant</h2>
+                <h2>Defect Liability Workspace</h2>
                 <div class="header-meta">
                     <span id="turn-counter" class="badge neutral">0 turns</span>
                     <span id="policy-indicator" class="badge neutral">ready</span>
@@ -62,18 +62,18 @@
                 <section id="chat-welcome" class="chat-welcome">
                     <div class="welcome-orb" aria-hidden="true"></div>
                     <h3>Hi {{ display_name }}</h3>
-                    <p>Ready to work on your Defect Liability Period case?</p>
+                    <p>Ready to structure today’s defect liability case?</p>
                     <div class="welcome-cards">
                         <button class="task-card welcome-action" type="button" data-prompt="Give me a DLP communication checklist I can follow before sending a case update.">
-                            <strong>DLP Guidelines</strong>
+                            <strong>Workflow Playbook</strong>
                             <span>Use a clear case workflow</span>
                         </button>
                         <button class="task-card welcome-action" type="button" data-prompt="Analyze this defect report and identify the facts I should include in a proper DLP case summary.">
-                            <strong>Defect Scanner</strong>
+                            <strong>Issue Mapper</strong>
                             <span>Extract useful case facts</span>
                         </button>
                         <button class="task-card welcome-action" type="button" data-prompt="Evaluate this issue and provide liability risk level, contractor responsibility, and next legal action.">
-                            <strong>Liability Assessment</strong>
+                            <strong>Exposure Triage</strong>
                             <span>Get risk and action guidance</span>
                         </button>
                     </div>
@@ -82,7 +82,7 @@
                 <section id="messages" class="messages">
                     <div class="message system">
                         <div class="meta">system</div>
-                        <p>Hi {{ display_name }}, I am your DLP legal support assistant. I can help structure defect cases, notices, and response plans.</p>
+                        <p>Hi {{ display_name }}, I am your defect-liability support assistant. I can help structure case notes, notices, and response plans.</p>
                     </div>
                 </section>
 
@@ -113,7 +113,7 @@
                     </div>
                 </div>
                 <div class="composer-meta">
-                    <span id="workspace-status" class="provider-pill">Mode: current case</span>
+                    <span id="workspace-status" class="provider-pill">Mode: live thread</span>
                     <span class="provider-pill">Engine: Ollama local</span>
                     <span class="provider-pill">Model: {{ default_model or "llama3.2:3b" }}</span>
                 </div>
