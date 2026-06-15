@@ -19,8 +19,17 @@
   const logoutButton = document.getElementById("logout-btn");
   const historyList = document.getElementById("history-list");
   const welcomePanel = document.getElementById("chat-welcome");
+  const workspacePanel = document.getElementById("workspace-panel");
+  const workspacePanelTitle = document.getElementById("workspace-panel-title");
+  const workspacePanelSubtitle = document.getElementById("workspace-panel-subtitle");
+  const workspacePanelContent = document.getElementById("workspace-panel-content");
   const suggestionsBar = document.getElementById("suggestions-bar");
   const workspaceStatus = document.getElementById("workspace-status");
+  const attachImageButton = document.getElementById("attach-image-btn");
+  const attachDocButton = document.getElementById("attach-doc-btn");
+  const attachImageInput = document.getElementById("attach-image-input");
+  const attachDocInput = document.getElementById("attach-doc-input");
+  const attachmentList = document.getElementById("attachment-list");
   const workspaceButtons = Array.from(document.querySelectorAll(".workspace-btn"));
   const chatTitle = document.querySelector(".chat-topbar h2");
   const bootstrap = window.__CLIENT_BOOTSTRAP__ || {};
@@ -35,11 +44,14 @@
   let sessions = [];
   let activeSessionId = "";
   let activeWorkspace = "current";
+  let pendingAttachments = [];
 
   const WORKSPACE_CONFIG = {
     current: {
       label: "Live Thread",
       prompt: "",
+      subtitle: "Real-time assistant conversation",
+      placeholder: "Ask about a DLP case, defect issue, or notice draft...",
       suggestions: [
         "Create a clean defect-liability case summary structure I can reuse.",
         "What should be in a defect report before escalation?",
@@ -48,39 +60,96 @@
     },
     guidelines: {
       label: "Workflow Playbook",
-      prompt: "Give me a practical checklist for managing Defect Liability Period communication with clients and contractors.",
+      subtitle: "User instructions and safety commitments",
+      placeholder: "Ask for workflow clarifications or policy explanations...",
       suggestions: [
         "List 8 practical DLP communication rules for project teams.",
         "Show bad vs good examples of DLP case updates.",
         "Create a one-minute DLP checklist for non-technical staff.",
       ],
+      panelHtml: `
+        <article class="workspace-card">
+          <h4>How to use this assistant</h4>
+          <ol>
+            <li>Describe your defect issue using neutral case facts.</li>
+            <li>Ask for triage, clause mapping, or notice drafting support.</li>
+            <li>Review response, then copy formal output for your submission.</li>
+          </ol>
+        </article>
+        <article class="workspace-card">
+          <h4>Your personal information protection</h4>
+          <ul>
+            <li>Direct identifiers are masked before model dispatch.</li>
+            <li>Administrative evidence views are sanitized and read-only.</li>
+            <li>Session-level controls reduce accidental data exposure.</li>
+          </ul>
+          <p class="workspace-note">You can still avoid typing full IDs or account numbers unless absolutely required for your case.</p>
+        </article>
+      `,
     },
     assessment: {
       label: "Exposure Triage",
-      prompt: "Assess this defect case and explain urgency, liability risk, and recommended next action.",
+      subtitle: "Classify urgency and recommend next move",
+      placeholder: "Paste a case summary to assess urgency and liability risk...",
       suggestions: [
         "Evaluate this case using low/medium/high legal urgency levels.",
         "What facts increase liability risk in this defect report?",
         "How can I rewrite this report to be clearer for legal review?",
       ],
+      panelHtml: `
+        <article class="workspace-card">
+          <h4>Triage frame</h4>
+          <div class="workspace-kpis">
+            <span class="workspace-pill">Urgency</span>
+            <span class="workspace-pill">Liability exposure</span>
+            <span class="workspace-pill">Escalation path</span>
+          </div>
+          <p>Ask for a structured answer in this format: <em>Issue summary -> Risk tier -> Responsible party -> Recommended action within timeline.</em></p>
+        </article>
+      `,
     },
     scanner: {
       label: "Clause Mapper",
-      prompt: "Scan this defect report and extract key timeline facts, parties involved, and required actions.",
+      subtitle: "Map facts to contractual and legal checkpoints",
+      placeholder: "Paste defect text to extract timeline, parties, and clause cues...",
       suggestions: [
         "Identify key incident facts and missing details in this report.",
         "Turn this raw message into a structured case note.",
         "Summarize clauses I should check for this defect type.",
       ],
+      panelHtml: `
+        <article class="workspace-card">
+          <h4>Case extraction checklist</h4>
+          <ul>
+            <li>Date and place of incident</li>
+            <li>Type of defect and severity</li>
+            <li>Evidence collected (photo, report, invoice)</li>
+            <li>Developer or contractor response status</li>
+          </ul>
+        </article>
+      `,
     },
     notice: {
       label: "Response Drafting",
-      prompt: "Draft a formal DLP notice letter for contractor response within a defined timeline.",
+      subtitle: "Generate formal communication drafts",
+      placeholder: "Request a notice template, reminder, or escalation letter...",
       suggestions: [
         "Draft a notice with issue summary, expected remedy, and deadline.",
         "Write a reminder notice for delayed defect rectification.",
         "Create a concise final warning notice before escalation.",
       ],
+      panelHtml: `
+        <article class="workspace-card">
+          <h4>Notice output template</h4>
+          <p>Recommended structure:</p>
+          <ol>
+            <li>Reference and defect description</li>
+            <li>Legal/contract basis and DLP window context</li>
+            <li>Required remedial action and response deadline</li>
+            <li>Escalation statement if unresolved</li>
+          </ol>
+        </article>
+      `,
     },
   };
 
@@ -220,19 +289,94 @@
       .join("");
   }
 
+  function renderWorkspacePanel(key) {
+    if (!workspacePanel || !workspacePanelTitle || !workspacePanelSubtitle || !workspacePanelContent) return;
+    const config = WORKSPACE_CONFIG[key];
+    if (!config || key === "current") {
+      workspacePanel.hidden = true;
+      workspacePanelContent.innerHTML = "";
+      return;
+    }
+    workspacePanelTitle.textContent = config.label || "Workspace";
+    workspacePanelSubtitle.textContent = config.subtitle || "";
+    workspacePanelContent.innerHTML = config.panelHtml || "<p class=\"workspace-empty\">No panel content available.</p>";
+    workspacePanel.hidden = false;
+  }
+
+  function setWorkspaceView(key) {
+    const isCurrent = key === "current";
+    if (messages) messages.hidden = !isCurrent;
+    if (welcomePanel) {
+      welcomePanel.hidden = !isCurrent || turns > 0;
+    }
+    if (!isCurrent && reportNode) {
+      reportNode.hidden = true;
+    }
+    renderWorkspacePanel(key);
+  }
+
+  function renderAttachmentList() {
+    if (!attachmentList) return;
+    if (!pendingAttachments.length) {
+      attachmentList.hidden = true;
+      attachmentList.innerHTML = "";
+      return;
+    }
+    attachmentList.hidden = false;
+    attachmentList.innerHTML = "";
+    pendingAttachments.forEach((item, index) => {
+      const chip = document.createElement("div");
+      chip.className = "attachment-chip";
+
+      const label = document.createElement("span");
+      label.textContent = `${item.kind}: ${item.name}`;
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "attachment-remove";
+      remove.textContent = "Remove";
+      remove.dataset.index = String(index);
+
+      chip.appendChild(label);
+      chip.appendChild(remove);
+      attachmentList.appendChild(chip);
+    });
+  }
+
+  function clearAttachments() {
+    pendingAttachments = [];
+    if (attachImageInput) attachImageInput.value = "";
+    if (attachDocInput) attachDocInput.value = "";
+    renderAttachmentList();
+  }
+
+  function addAttachments(fileList, kind) {
+    const files = Array.from(fileList || []).slice(0, 4);
+    if (!files.length) return;
+    const next = files.map((file) => ({
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      size: Number(file.size || 0),
+      kind,
+    }));
+    pendingAttachments = [...pendingAttachments, ...next].slice(0, 6);
+    renderAttachmentList();
+  }
+
   function applyWorkspace(workspace, { includeDraft = true } = {}) {
     const key = workspace in WORKSPACE_CONFIG ? workspace : "current";
     const config = WORKSPACE_CONFIG[key];
     activateWorkspace(key);
+    setWorkspaceView(key);
     renderSuggestionButtons(config.suggestions || []);
-    if (includeDraft && config.prompt) {
+    if (input) {
+      input.placeholder = config.placeholder || "Ask a question...";
+    }
+    if (includeDraft && config.prompt && key === "current") {
       setPromptDraft(config.prompt);
     }
     if (suggestionsBar) {
       suggestionsBar.hidden = false;
-    }
-    if (key !== "current" && welcomePanel) {
-      welcomePanel.hidden = false;
     }
   }
 
@@ -317,6 +461,7 @@
     lastAssistantText = lastAssistant?.text || "";
     setIndicator("neutral");
     if (reportNode) reportNode.hidden = true;
+    clearAttachments();
   }
 
   function renderHistoryList() {
@@ -429,13 +574,28 @@
   workspaceButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
       const workspace = btn.dataset.workspace || "current";
+      applyWorkspace(workspace, { includeDraft: false });
       if (workspace === "current") {
-        applyWorkspace("current", { includeDraft: false });
         input?.focus();
-        return;
       }
-      applyWorkspace(workspace, { includeDraft: true });
     });
+  });
+
+  attachImageButton?.addEventListener("click", () => attachImageInput?.click());
+  attachDocButton?.addEventListener("click", () => attachDocInput?.click());
+  attachImageInput?.addEventListener("change", (event) => {
+    addAttachments(event.target?.files, "Picture");
+  });
+  attachDocInput?.addEventListener("change", (event) => {
+    addAttachments(event.target?.files, "Document");
+  });
+  attachmentList?.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target.closest(".attachment-remove") : null;
+    if (!target) return;
+    const idx = Number(target.dataset.index || -1);
+    if (idx < 0 || idx >= pendingAttachments.length) return;
+    pendingAttachments.splice(idx, 1);
+    renderAttachmentList();
   });
 
   input?.addEventListener("input", autoResizeInput);
@@ -472,10 +632,17 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const prompt = (input?.value || "").trim();
-    if (!prompt) return;
+    if (!prompt && !pendingAttachments.length) return;
+    const attachmentNames = pendingAttachments.map((item) => item.name);
+    const renderedPrompt = prompt || "Please review the attached materials for this defect-liability case.";
+    const attachmentLine = attachmentNames.length ? `\n\nAttachments: ${attachmentNames.join(", ")}` : "";
+    const modelPrompt = `${renderedPrompt}${attachmentLine}`;
+    if (activeWorkspace !== "current") {
+      applyWorkspace("current", { includeDraft: false });
+    }
 
-    appendMessage("user", prompt, "you");
-    appendEntry("user", prompt, "you");
+    appendMessage("user", `${renderedPrompt}${attachmentLine}`, "you");
+    appendEntry("user", `${renderedPrompt}${attachmentLine}`, "you");
     input.value = "";
     autoResizeInput();
     setTyping(true);
@@ -496,7 +663,7 @@
         },
         signal: controller.signal,
         body: JSON.stringify({
-          prompt,
+          prompt: modelPrompt,
           provider: (providerInput?.value || "ollama").trim(),
           model: (modelInput?.value || "").trim() || undefined,
         }),
@@ -529,6 +696,7 @@
         updateTurns();
         updatePrivacyReport(payload);
         setIndicator("ok");
+        clearAttachments();
         return;
       }
       if (payload.status === "challenge") {
@@ -539,6 +707,7 @@
         updateTurns();
         updatePrivacyReport(payload);
         setIndicator("challenge");
+        clearAttachments();
         return;
       }
       const deniedText = payload.reply || payload.message || "Request denied by policy.";
@@ -548,6 +717,7 @@
       updateTurns();
       updatePrivacyReport(payload);
       setIndicator("denied");
+      clearAttachments();
     } catch (err) {
       if (err && err.name === "AbortError") {
         appendMessage(

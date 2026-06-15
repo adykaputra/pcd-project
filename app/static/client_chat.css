@@ -300,6 +300,91 @@ body {
   color: #5b75a0;
 }
 
+.workspace-panel {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 0.95rem;
+  box-shadow: 0 10px 24px rgba(24, 44, 84, 0.05);
+  display: grid;
+  gap: 0.7rem;
+}
+
+.workspace-panel-header h3 {
+  margin: 0;
+  color: #1f355c;
+  font-size: 1.08rem;
+}
+
+.workspace-panel-header p {
+  margin: 0.22rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.workspace-panel-content {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.workspace-card {
+  border: 1px solid #dae3f2;
+  border-radius: 14px;
+  padding: 0.75rem 0.8rem;
+  background: #f9fbff;
+}
+
+.workspace-card h4 {
+  margin: 0 0 0.42rem;
+  color: #1f406f;
+  font-size: 0.94rem;
+}
+
+.workspace-card p,
+.workspace-card li {
+  color: #486187;
+  line-height: 1.45;
+  font-size: 0.84rem;
+}
+
+.workspace-card ul,
+.workspace-card ol {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.workspace-note {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #c8d8f0;
+}
+
+.workspace-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.48rem;
+}
+
+.workspace-pill {
+  border: 1px solid #c3d5f2;
+  border-radius: 999px;
+  background: #ebf3ff;
+  color: #2d558f;
+  font-size: 0.68rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.workspace-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
 .welcome-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -438,6 +523,60 @@ body {
   padding-bottom: 0.06rem;
 }
 
+.composer-tools {
+  display: flex;
+  gap: 0.42rem;
+  flex-wrap: wrap;
+}
+
+.attach-btn {
+  border: 1px solid #bfd1ef;
+  border-radius: 10px;
+  background: #f5f9ff;
+  color: #2e5a99;
+  padding: 0.36rem 0.62rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.attach-btn:hover {
+  border-color: #9abbea;
+  background: #eaf2ff;
+}
+
+.attachment-list {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.36rem;
+  border: 1px solid #c9d9f2;
+  border-radius: 999px;
+  background: #f2f7ff;
+  color: #3c5f94;
+  padding: 0.18rem 0.2rem 0.18rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+.attachment-remove {
+  border: 0;
+  border-radius: 999px;
+  background: #dbe8ff;
+  color: #245497;
+  padding: 0.13rem 0.46rem;
+  font-size: 0.66rem;
+  cursor: pointer;
+}
+
+.attachment-remove:hover {
+  background: #c9ddff;
+}
+
 .suggestion-btn {
   border: 1px solid #bfd1ef;
   border-radius: 10px;
@@ -551,6 +690,10 @@ textarea:focus {
   }
 
   .welcome-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-panel-content {
     grid-template-columns: 1fr;
   }
 

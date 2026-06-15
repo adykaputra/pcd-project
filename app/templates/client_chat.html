@@ -21,10 +21,10 @@
                 <h3>Workspace</h3>
                 <ul class="workspace-nav">
                     <li><button type="button" class="workspace-btn active" data-workspace="current">Live Thread</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="guidelines" data-prompt="Give me a checklist to manage Defect Liability Period communication with a client.">Workflow Playbook</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="assessment" data-prompt="Assess this defect case and classify urgency, liability risk, and recommended next action.">Exposure Triage</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="scanner" data-prompt="Scan this defect report and extract key incident facts for the case record.">Clause Mapper</button></li>
-                    <li><button type="button" class="workspace-btn" data-workspace="notice" data-prompt="Draft a formal defect notice letter for contractor response within the required timeline.">Response Drafting</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="guidelines">Workflow Playbook</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="assessment">Exposure Triage</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="scanner">Clause Mapper</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="notice">Response Drafting</button></li>
                 </ul>
             </section>
             <section class="sidebar-section history">
@@ -79,6 +79,14 @@
                     </div>
                 </section>
 
+                <section id="workspace-panel" class="workspace-panel" hidden>
+                    <header class="workspace-panel-header">
+                        <h3 id="workspace-panel-title">Workspace</h3>
+                        <p id="workspace-panel-subtitle"></p>
+                    </header>
+                    <div id="workspace-panel-content" class="workspace-panel-content"></div>
+                </section>
+
                 <section id="messages" class="messages">
                     <div class="message system">
                         <div class="meta">system</div>
@@ -105,6 +113,13 @@
                     <button class="suggestion-btn" type="button" data-prompt="Draft a formal defect notice letter to contractor with response deadline.">Defect Notice Draft</button>
                     <button class="suggestion-btn" type="button" data-prompt="List key evidence I should collect for a strong DLP liability claim.">Evidence Checklist</button>
                 </section>
+                <div class="composer-tools">
+                    <button class="attach-btn" id="attach-image-btn" type="button">Add picture</button>
+                    <button class="attach-btn" id="attach-doc-btn" type="button">Add document</button>
+                    <input id="attach-image-input" type="file" accept="image/*" hidden />
+                    <input id="attach-doc-input" type="file" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" hidden />
+                </div>
+                <div id="attachment-list" class="attachment-list" hidden></div>
                 <div class="composer-input-row">
                     <textarea id="chat-input" rows="1" placeholder="Ask about a DLP case, defect issue, or notice draft..."></textarea>
                     <div class="composer-actions">
