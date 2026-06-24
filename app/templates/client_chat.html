@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CaseDesk Copilot - Client Chat</title>
+    <link rel="stylesheet" href="/static/client_chat.css" />
+</head>
+<body>
+    <div class="chat-shell">
+        <aside class="sidebar">
+            <div class="sidebar-header brand-block">
+                <div class="brand-icon" aria-hidden="true"></div>
+                <div>
+                    <h1>CaseDesk Copilot</h1>
+                    <p>Welcome, <strong>{{ display_name }}</strong></p>
+                </div>
+            </div>
+            <button type="button" id="clear-chat" class="new-chat">+ New case</button>
+            <section class="sidebar-section">
+                <h3>Workspace</h3>
+                <ul class="workspace-nav">
+                    <li><button type="button" class="workspace-btn active" data-workspace="current">Live Thread</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="guidelines">Workflow Playbook</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="assessment">Exposure Triage</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="scanner">Clause Mapper</button></li>
+                    <li><button type="button" class="workspace-btn" data-workspace="notice">Response Drafting</button></li>
+                </ul>
+            </section>
+            <section class="sidebar-section history">
+                <h3>Session log</h3>
+                <ul id="history-list" class="history-list"></ul>
+            </section>
+            <div class="sidebar-section">
+                <h3>Assistant status</h3>
+                <div class="sidebar-badges">
+                    <span class="pill">Case mode online</span>
+                    <span class="pill">Local model route</span>
+                </div>
+            </div>
+            <div class="sidebar-section muted-copy">
+                <h3>How this assistant helps</h3>
+                <ul>
+                    <li>Supports DLP case intake, triage, and notice drafting.</li>
+                    <li>Keeps your responses structured for showcase walkthroughs.</li>
+                    <li>Sensitive data controls run silently in the background.</li>
+                </ul>
+            </div>
+            <a id="logout-btn" href="/" class="signout-link">Sign Out</a>
+        </aside>
+
+        <main class="chat-main">
+            <header class="chat-topbar">
+                <h2>Defect Liability Workspace</h2>
+                <div class="header-meta">
+                    <span id="turn-counter" class="badge neutral">0 turns</span>
+                    <span id="policy-indicator" class="badge neutral">ready</span>
+                </div>
+            </header>
+
+            <div class="chat-stage">
+                <section id="chat-welcome" class="chat-welcome">
+                    <div class="welcome-orb" aria-hidden="true"></div>
+                    <h3>Hi {{ display_name }}</h3>
+                    <p>Ready to structure today’s defect liability case?</p>
+                    <div class="welcome-cards">
+                        <button class="task-card welcome-action" type="button" data-prompt="Give me a DLP communication checklist I can follow before sending a case update.">
+                            <strong>Workflow Playbook</strong>
+                            <span>Use a clear case workflow</span>
+                        </button>
+                        <button class="task-card welcome-action" type="button" data-prompt="Analyze this defect report and identify the facts I should include in a proper DLP case summary.">
+                            <strong>Issue Mapper</strong>
+                            <span>Extract useful case facts</span>
+                        </button>
+                        <button class="task-card welcome-action" type="button" data-prompt="Evaluate this issue and provide liability risk level, contractor responsibility, and next legal action.">
+                            <strong>Exposure Triage</strong>
+                            <span>Get risk and action guidance</span>
+                        </button>
+                    </div>
+                </section>
+
+                <section id="workspace-panel" class="workspace-panel" hidden>
+                    <header class="workspace-panel-header">
+                        <h3 id="workspace-panel-title">Workspace</h3>
+                        <p id="workspace-panel-subtitle"></p>
+                    </header>
+                    <div id="workspace-panel-content" class="workspace-panel-content"></div>
+                </section>
+
+                <section id="messages" class="messages">
+                    <div class="message system">
+                        <div class="meta">system</div>
+                        <p>Hi {{ display_name }}, I am your defect-liability support assistant. I can help structure case notes, notices, and response plans.</p>
+                    </div>
+                </section>
+
+                <section id="privacy-report" class="privacy-report" hidden>
+                    <h3>Case Insight</h3>
+                    <div class="report-grid">
+                        <div><span>Decision</span><strong id="report-policy">n/a</strong></div>
+                        <div><span>Risk Score</span><strong id="report-score">n/a</strong></div>
+                        <div><span>Risk Tier</span><strong id="report-level">n/a</strong></div>
+                        <div><span>Case Flags</span><strong id="report-tokens">0</strong></div>
+                    </div>
+                    <p id="report-reasons" class="muted"></p>
+                    <p id="report-proof" class="muted"></p>
+                </section>
+            </div>
+
+            <form id="chat-form" class="composer">
+                <section id="suggestions-bar" class="quick-prompts">
+                    <button class="suggestion-btn" type="button" data-prompt="Create a DLP case summary format with sections I can present to my supervisor.">Case Summary Format</button>
+                    <button class="suggestion-btn" type="button" data-prompt="Draft a formal defect notice letter to contractor with response deadline.">Defect Notice Draft</button>
+                    <button class="suggestion-btn" type="button" data-prompt="List key evidence I should collect for a strong DLP liability claim.">Evidence Checklist</button>
+                </section>
+                <div class="composer-tools">
+                    <button class="attach-btn" id="attach-image-btn" type="button">Add picture</button>
+                    <button class="attach-btn" id="attach-doc-btn" type="button">Add document</button>
+                    <input id="attach-image-input" type="file" accept="image/*" hidden />
+                    <input id="attach-doc-input" type="file" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" hidden />
+                </div>
+                <div id="attachment-list" class="attachment-list" hidden></div>
+                <div class="composer-input-row">
+                    <textarea id="chat-input" rows="1" placeholder="Ask about a DLP case, defect issue, or notice draft..."></textarea>
+                    <div class="composer-actions">
+                        <button type="button" id="copy-last" class="btn-secondary">Copy Last</button>
+                        <button type="submit">Send</button>
+                    </div>
+                </div>
+                <div class="composer-meta">
+                    <span id="workspace-status" class="provider-pill">Mode: live thread</span>
+                    <span class="provider-pill">Engine: Ollama local</span>
+                    <span class="provider-pill">Model: {{ default_model or "llama3.2:3b" }}</span>
+                </div>
+                <input id="provider" type="hidden" value="ollama" />
+                <input id="model" type="hidden" value="{{ default_model or '' }}" />
+                <p id="typing-indicator" class="typing" hidden>Assistant is thinking...</p>
+            </form>
+        </main>
+    </div>
+
+    <script>
+        window.__CLIENT_BOOTSTRAP__ = {
+            displayName: {{ (display_name or "Client") | tojson }},
+            userIdentity: {{ (user_identity or "") | tojson }},
+            authToken: {{ (auth_token or "") | tojson }},
+        };
+    </script>
+    <script src="/static/client_chat.js"></script>
+</body>
+</html>

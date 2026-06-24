@@ -26,6 +26,9 @@ class JSONFormatter(logging.Formatter):
             if has_request_context():
                 data.setdefault("request_id", getattr(g, "request_id", None))
                 data.setdefault("user_role", getattr(g, "user_role", None))
+                data.setdefault("user_identity", getattr(g, "user_identity", None))
+                data.setdefault("user_name", getattr(g, "user_name", None))
+                data.setdefault("session_id", getattr(g, "session_id", None))
                 data.setdefault("endpoint", getattr(g, "endpoint", None))
         except Exception:
             # Ignore issues in accessing request context

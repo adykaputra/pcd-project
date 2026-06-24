@@ -16,7 +16,11 @@ dependencies:
     - flask_sqlalchemy
     - flask-cors
     - requests
+    - openai
     - pytest
     - black
     - PyJWT
+    - authlib
+    - pypdf
+    - python-docx
     # add other pip deps here

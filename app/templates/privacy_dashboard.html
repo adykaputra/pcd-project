@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Firewall Control Center</title>
+    <link rel="stylesheet" href="/static/privacy_dashboard.css" />
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-dot"></div>
+                <div>
+                    <h1>Privacy Firewall</h1>
+                    <p>Command Center</p>
+                </div>
+            </div>
+            <nav class="menu-nav">
+                <button class="menu-item" data-view="prompt">Live Prompt Test</button>
+                <button class="menu-item active" data-view="proof">Comparison Lab</button>
+                <button class="menu-item" data-view="evidence">Evidence Log</button>
+            </nav>
+            <div class="status-box">
+                <div class="status-pill online">Gateway Online</div>
+                <div class="status-pill secure">Policy Guard Active</div>
+            </div>
+            <div class="sidebar-note">
+                <strong>Secure admin access</strong>
+                <p>This dashboard uses encrypted cookie sessions. Manual JWT input has been removed.</p>
+            </div>
+            <div class="quick-links">
+                <a id="dashboard-logout" href="/">Sign Out</a>
+                <a href="/client">Client Chat</a>
+            </div>
+        </aside>
+
+        <main class="content">
+            <header class="hero view-section" data-view="proof">
+                <div>
+                    <h2>Redaction Comparison Command Center</h2>
+                    <p>Compare redaction methods, inspect robustness under adversarial prompts, and export viva-ready evidence from one admin workspace.</p>
+                </div>
+                <div class="hero-metrics">
+                    <div class="metric-card">
+                        <span>Benchmark Dataset</span>
+                        <strong id="metric-dataset">{{ dataset_version or (benchmark.metrics.dataset_version if benchmark else "n/a") }}</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Leak Rate</span>
+                        <strong id="metric-leak">{{ benchmark.metrics.core_pii_leak_rate if benchmark else "n/a" }}</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Detection Rate</span>
+                        <strong id="metric-detection">{{ benchmark.metrics.pii_detection_rate if benchmark else "n/a" }}</strong>
+                    </div>
+                </div>
+            </header>
+
+            <section class="panel-grid">
+                <article id="panel-auth" class="panel view-section" data-view="prompt">
+                    <h3>Admin Session Check</h3>
+                    <form id="login-form">
+                        <label>Password</label>
+                        <input id="login-password" type="password" placeholder="admin-pass" />
+                        <button type="submit">Refresh Session</button>
+                    </form>
+                    <p class="muted">Use this only when your admin session expires. API actions use secure cookie auth automatically.</p>
+                </article>
+
+                <article id="panel-generate" class="panel view-section" data-view="prompt">
+                    <h3>Generate via Privacy Firewall</h3>
+                    <form id="generate-form">
+                        <label>Prompt</label>
+                        <textarea id="generate-prompt" rows="4" placeholder="Type prompt with/without PII..."></textarea>
+                        <div class="field-row">
+                            <div>
+                                <label>Provider</label>
+                                <select id="generate-provider">
+                                    <option value="mock" selected>mock</option>
+                                    <option value="ollama">ollama</option>
+                                    <option value="openai">openai</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Model</label>
+                                <input id="generate-model" placeholder="optional-model" />
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div>
+                                <label>Challenge Threshold</label>
+                                <input id="generate-challenge" type="number" placeholder="optional" />
+                            </div>
+                            <div>
+                                <label>Block Threshold</label>
+                                <input id="generate-block" type="number" placeholder="optional" />
+                            </div>
+                        </div>
+                        <button type="submit">Run Generate</button>
+                    </form>
+                    <p class="muted">This runs a live request through detection, policy scoring, and tokenized model dispatch.</p>
+                </article>
+
+                <article id="panel-pipeline" class="panel view-section wide" data-view="prompt">
+                    <h3>Live Pipeline Status</h3>
+                    <p class="muted">After each Generate run, these checkpoints update with verifiable firewall evidence.</p>
+                    <div class="proof-grid pipeline-grid">
+                        <div class="proof-card">
+                            <span>Input Scan</span>
+                            <strong id="pipeline-scan">Waiting for request</strong>
+                        </div>
+                        <div class="proof-card">
+                            <span>Policy Decision</span>
+                            <strong id="pipeline-policy">Not evaluated yet</strong>
+                        </div>
+                        <div class="proof-card">
+                            <span>Model Dispatch</span>
+                            <strong id="pipeline-dispatch">No dispatch yet</strong>
+                        </div>
+                        <div class="proof-card">
+                            <span>Traceability</span>
+                            <strong id="pipeline-trace">No audit proof yet</strong>
+                        </div>
+                    </div>
+                    <p id="pipeline-detail" class="muted">Run Generate to capture tokenized payload proof.</p>
+                </article>
+
+                <article id="panel-governance" class="panel view-section wide" data-view="proof">
+                    <h3>Redaction Comparison Workbench</h3>
+                    <div class="field-row filter-row">
+                        <div>
+                            <label>Dataset Version</label>
+                            <select id="benchmark-dataset">
+                                {% for version in available_dataset_versions %}
+                                <option value="{{ version }}" {% if version == dataset_version %}selected{% endif %}>{{ version }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label>Scenario Filter</label>
+                            <select id="comparison-scenario">
+                                <option value="all" selected>all scenarios</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Language Filter</label>
+                            <select id="comparison-language">
+                                <option value="all" selected>all languages</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p id="comparison-filter-context" class="muted">Filter options are loading from the selected dataset.</p>
+                    <div class="action-row">
+                        <button id="btn-benchmark" type="button">Run Privacy Check</button>
+                        <button id="btn-summary" type="button">Show Audit Summary</button>
+                        <button id="btn-comparison" type="button">Run Method Comparison</button>
+                        <button id="btn-adversarial" type="button">Run Adversarial Stress</button>
+                        <button id="btn-runbook" type="button">Run Demo Runbook</button>
+                    </div>
+                    <p class="muted">These controls produce measurable evidence: firewall quality, audit totals, and method-vs-method redaction performance.</p>
+                </article>
+            </section>
+
+            <section class="panel wide view-section" data-view="proof">
+                <h3>Comparison Snapshot</h3>
+                <div class="snapshot-grid">
+                    <div class="proof-card">
+                        <span>Top Method</span>
+                        <strong id="metric-top-method">n/a</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Top Composite Score</span>
+                        <strong id="metric-top-score">n/a</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Top Micro F1</span>
+                        <strong id="metric-top-f1">n/a</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Adversarial Leak Rate</span>
+                        <strong id="metric-adversarial-leak">n/a</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel wide view-section" data-view="proof">
+                <h3>Method Comparison Table</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="sortable" data-sort="method_name">Method <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="composite_score">Composite <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="avg_target_recall">Recall <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="core_pii_leak_rate">Leak Rate <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="micro_f1">Micro F1 <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="avg_latency_ms">Latency (ms) <span class="sort-indicator"></span></th>
+                                <th class="sortable" data-sort="wins">Wins <span class="sort-indicator"></span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparison-table-body">
+                            <tr>
+                                <td colspan="7" class="muted">Run Method Comparison to populate this table.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="panel wide view-section" data-view="proof">
+                <h3>How to Read This Dashboard</h3>
+                <div class="proof-grid">
+                    <div class="proof-card">
+                        <span>Run Generate</span>
+                        <strong>Live firewall decision per prompt</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Run Privacy Check</span>
+                        <strong>Quality score on benchmark prompts</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Show Audit Summary</span>
+                        <strong>24h totals of allow/challenge/block</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Run Method Comparison</span>
+                        <strong>Regex vs Presidio vs NER vs Vault vs Validator</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Evidence Log</span>
+                        <strong>User/session trace with counts</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel wide view-section" data-view="proof">
+                <h3>Who Used the System (Session Proof)</h3>
+                {% if recent_sessions %}
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>User Identity</th>
+                                <th>Session ID</th>
+                                <th>Latest Event</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in recent_sessions %}
+                            <tr>
+                                <td>{{ row.ts }}</td>
+                                <td>{{ row.user_identity }}</td>
+                                <td>{{ row.session_id }}</td>
+                                <td>{{ row.event_type }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="muted">No authenticated user sessions recorded yet. Start a client chat first.</p>
+                {% endif %}
+            </section>
+
+            <section class="panel wide view-section" data-view="proof">
+                <h3>Sanitized User Session Threads (Admin-safe)</h3>
+                <p class="muted">Click any user session to view the fully redacted prompts that were sent to the model. Raw PII is never shown here.</p>
+                {% if sanitized_threads %}
+                <div class="thread-list">
+                    {% for thread in sanitized_threads %}
+                    <details class="thread-item">
+                        <summary>
+                            <span>{{ thread.user_identity }}</span>
+                            <span class="thread-meta">session {{ thread.session_id }} · {{ thread.latest_ts }}</span>
+                        </summary>
+                        <div class="thread-messages">
+                            {% for message in thread.messages %}
+                            <div class="thread-message">
+                                <p class="thread-ts">{{ message.ts }}{% if message.policy_action %} · {{ message.policy_action }}{% endif %}</p>
+                                <code>{{ message.redacted_prompt }}</code>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="muted">No sanitized user thread yet. Send client prompts first.</p>
+                {% endif %}
+            </section>
+
+            <section class="panel wide view-section" data-view="proof">
+                <h3>LLM Redaction Proof (What Model Received)</h3>
+                {% if latest_dispatch_proof and latest_dispatch_proof.proof %}
+                <div class="proof-grid">
+                    <div class="proof-card">
+                        <span>User</span>
+                        <strong>{{ latest_dispatch_proof.user_identity or "unknown" }}</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Session</span>
+                        <strong>{{ latest_dispatch_proof.session_id or "unknown" }}</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Model Input Tokenized</span>
+                        <strong>{{ "Yes" if latest_dispatch_proof.proof.model_input_is_tokenized else "No" }}</strong>
+                    </div>
+                    <div class="proof-card">
+                        <span>Redaction Applied</span>
+                        <strong>{{ "Yes" if latest_dispatch_proof.proof.redaction_applied else "No" }}</strong>
+                    </div>
+                </div>
+                <p class="muted"><strong>Tokenized payload preview:</strong> {{ latest_dispatch_proof.proof.tokenized_prompt_preview }}</p>
+                <p class="muted"><strong>Original prompt hash:</strong> {{ latest_dispatch_proof.proof.original_prompt_sha256 }}</p>
+                {% else %}
+                <p class="muted">No dispatch proof found yet. Send a client prompt first, then refresh dashboard.</p>
+                {% endif %}
+            </section>
+
+            <section id="panel-chart" class="panel wide view-section" data-view="proof">
+                <h3>Operational Analytics</h3>
+                <p class="muted">Live telemetry from recent firewall decisions (allow/challenge/block), refreshed automatically.</p>
+                <div class="action-row">
+                    <button id="btn-live-refresh" type="button">Refresh Live Telemetry</button>
+                    <span id="live-telemetry-status" class="muted">Live window: last 24 hours.</span>
+                </div>
+                <div class="chart-grid">
+                    <div class="chart-card">
+                        <h4>Live Decision Snapshot</h4>
+                        <div id="quality-cards" class="quality-grid"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Policy Action Distribution</h4>
+                        <div id="policy-bars" class="bars"></div>
+                    </div>
+                    <div class="chart-card chart-wide">
+                        <h4>Live Policy Timeline</h4>
+                        <svg id="trend-chart" viewBox="0 0 760 210" role="img" aria-label="Live policy trend chart"></svg>
+                    </div>
+                </div>
+                <div id="result-brief" class="result-brief">
+                    <h4>Latest Action Result</h4>
+                    <p id="result-summary">No admin action yet.</p>
+                </div>
+                <div class="result-brief">
+                    <h4>Comparative Method Leaderboard</h4>
+                    <div id="method-leaderboard" class="leaderboard muted">Run Method Comparison to populate method ranking.</div>
+                </div>
+            </section>
+
+            <section class="panel wide view-section" data-view="proof">
+                <h3>Functionality Ops (Retention, Adversarial, Viva Export)</h3>
+                <div class="ops-grid">
+                    <div class="result-brief">
+                        <h4>Adversarial Stress Summary</h4>
+                        <p id="adversarial-summary">Run Adversarial Stress to populate robustness metrics.</p>
+                    </div>
+                    <div class="result-brief">
+                        <h4>Vault Retention Controls</h4>
+                        <div class="action-row">
+                            <button id="btn-vault-stats" type="button">Refresh Vault Stats</button>
+                            <button id="btn-vault-purge" type="button">Purge Vault</button>
+                        </div>
+                        <div class="field-row">
+                            <div>
+                                <label>Retention Hours</label>
+                                <input id="vault-retention-hours" type="number" value="168" min="1" />
+                            </div>
+                            <div>
+                                <label>Current Policy</label>
+                                <input id="vault-policy-hours" type="text" value="n/a" readonly />
+                            </div>
+                        </div>
+                        <p id="vault-summary" class="muted">Vault stats not loaded yet.</p>
+                    </div>
+                </div>
+                <div class="result-brief">
+                    <h4>One-Click Viva Artifact Export</h4>
+                    <div class="action-row">
+                        <button id="btn-viva-export" type="button">Export Viva Pack</button>
+                    </div>
+                    <div id="viva-summary" class="leaderboard muted">No viva artifact generated in this session.</div>
+                </div>
+                <div class="result-brief">
+                    <h4>Demo Runbook Status</h4>
+                    <p id="runbook-summary">Run Demo Runbook to execute benchmark, comparison, adversarial stress, and viva export in one flow.</p>
+                </div>
+            </section>
+
+            <section id="panel-audit" class="panel wide view-section" data-view="evidence">
+                <h3>Evidence Log (Redacted Read-only Session Viewer)</h3>
+                <p class="muted">This list groups by whole user session (not per single chat line). Click Open Viewer to inspect the full redacted transcript in dedicated viewer mode.</p>
+                <div class="action-row">
+                    <button id="btn-evidence-refresh" type="button">Refresh Session Evidence</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Session ID</th>
+                                <th>Last Activity</th>
+                                <th>Turns</th>
+                                <th>Messages</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="evidence-session-table-body">
+                            <tr>
+                                <td colspan="6" class="muted">No session evidence yet. Start a client chat first.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+    <div id="toast" class="toast" aria-live="polite"></div>
+
+    <script>
+        window.__DASHBOARD_BOOTSTRAP__ = {
+            datasetVersion: {{ (dataset_version or "v1") | tojson }},
+            availableDatasets: {{ (available_dataset_versions or []) | tojson }},
+            benchmark: {{ (benchmark or {}) | tojson }},
+            calibration: {{ (calibration or {}) | tojson }},
+            autotune: {{ (autotune or {}) | tojson }},
+            benchmarkHistory: {{ (benchmark_history or []) | tojson }},
+            sanitizedThreads: {{ (sanitized_threads or []) | tojson }}
+        };
+    </script>
+    <script src="/static/privacy_dashboard.js"></script>
+</body>
+</html>

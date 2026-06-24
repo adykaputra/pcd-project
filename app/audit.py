@@ -2,7 +2,7 @@
 import sqlite3
 import json
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pathlib import Path
 
 DB_PATH = Path("data/audit_log.db")
@@ -102,6 +102,9 @@ class AuditManager:
         count_id, count_email, count_phone, forbidden_intents, metadata (dict),
         winning_tool, tool_a_counts, tool_b_counts, tool_c_counts (optional)
         """
+        # Defensive init keeps tests and runtime resilient if DB file is recreated.
+        self._init_db()
+
         # Build canonical payload for signing
         payload = {
             "ts": event.get("ts", datetime.utcnow()),
@@ -155,6 +158,7 @@ class AuditManager:
 
     def verify_integrity(self, since: Optional[datetime] = None) -> Dict[str, Any]:
         """Verify HMAC signatures for audit events. Returns a dict with integrity_ok and tampered ids."""
+        self._init_db()
         conn = self._connect()
         cur = conn.cursor()
         cur.execute("SELECT id, ts, event_type, request_id, user_role, endpoint, message, count_id, count_email, count_phone, forbidden_intents, metadata, signature FROM audit_events")
@@ -186,6 +190,7 @@ class AuditManager:
 
     def summary(self, since: Optional[datetime] = None) -> Dict[str, Any]:
         since = since or (datetime.utcnow() - timedelta(days=1))
+        self._init_db()
         conn = self._connect()
         cur = conn.cursor()
 
@@ -196,10 +201,15 @@ class AuditManager:
         )
         total_blocked = cur.fetchone()[0]
 
-        # Sum PII counts (PII_REDACTED)
+        # Sum PII counts across both legacy and jury redaction events.
         cur.execute(
-            "SELECT SUM(count_id) as ids, SUM(count_email) as emails FROM audit_events WHERE event_type = ? AND ts >= ?",
-            ("PII_REDACTED", since),
+            """
+            SELECT SUM(count_id) as ids, SUM(count_email) as emails
+            FROM audit_events
+            WHERE event_type IN (?, ?)
+              AND ts >= ?
+            """,
+            ("PII_REDACTED", "PII_REDACTED_JURY", since),
         )
         row = cur.fetchone()
         ids = row[0] or 0
@@ -222,12 +232,147 @@ class AuditManager:
         # Sort intents by frequency
         frequent_intents = sorted(intent_counts.items(), key=lambda x: x[1], reverse=True)
 
+        cur.execute(
+            """
+            SELECT event_type, COUNT(*) as c
+            FROM audit_events
+            WHERE event_type IN (?, ?)
+              AND ts >= ?
+            GROUP BY event_type
+            """,
+            ("PRIVACY_POLICY_BLOCK", "PRIVACY_POLICY_CHALLENGE", since),
+        )
+        policy_rows = cur.fetchall()
+        policy_counts = {"block": 0, "challenge": 0}
+        for row in policy_rows:
+            if row[0] == "PRIVACY_POLICY_BLOCK":
+                policy_counts["block"] = row[1]
+            elif row[0] == "PRIVACY_POLICY_CHALLENGE":
+                policy_counts["challenge"] = row[1]
+
         conn.close()
 
         return {
             "total_blocked_last_24h": total_blocked,
             "pii_redacted_last_24h": {"malaysian_ic": ids, "emails": emails},
             "frequent_forbidden_intents": frequent_intents,
+            "privacy_policy_actions_last_24h": policy_counts,
+        }
+
+    def live_telemetry(self, since: Optional[datetime] = None, bucket_minutes: int = 60) -> Dict[str, Any]:
+        """Return live action telemetry for dashboard analytics."""
+        since = since or (datetime.utcnow() - timedelta(hours=24))
+        bucket_minutes = max(5, int(bucket_minutes))
+        self._init_db()
+        conn = self._connect()
+        cur = conn.cursor()
+        tracked_events = (
+            "PII_TOKENIZED",
+            "PRIVACY_POLICY_CHALLENGE",
+            "PRIVACY_POLICY_BLOCK",
+            "SECURITY_DENIED",
+        )
+        cur.execute(
+            """
+            SELECT ts, event_type
+            FROM audit_events
+            WHERE ts >= ? AND event_type IN (?, ?, ?, ?)
+            ORDER BY ts ASC
+            """,
+            (since, *tracked_events),
+        )
+        rows = cur.fetchall()
+        conn.close()
+
+        def _bucket_start(value: datetime) -> datetime:
+            minute = (value.minute // bucket_minutes) * bucket_minutes
+            return value.replace(minute=minute, second=0, microsecond=0)
+
+        allow_events = {"PII_TOKENIZED"}
+        challenge_events = {"PRIVACY_POLICY_CHALLENGE"}
+        block_events = {"PRIVACY_POLICY_BLOCK", "SECURITY_DENIED"}
+
+        totals = {"allow": 0, "challenge": 0, "block": 0}
+        buckets: Dict[str, Dict[str, Any]] = {}
+
+        for row in rows:
+            ts_value = row["ts"]
+            if isinstance(ts_value, str):
+                try:
+                    ts_value = datetime.fromisoformat(ts_value.replace("Z", "+00:00")).replace(tzinfo=None)
+                except Exception:
+                    ts_value = datetime.utcnow()
+            elif not isinstance(ts_value, datetime):
+                ts_value = datetime.utcnow()
+
+            event_type = str(row["event_type"] or "")
+            if event_type in allow_events:
+                action = "allow"
+            elif event_type in challenge_events:
+                action = "challenge"
+            elif event_type in block_events:
+                action = "block"
+            else:
+                continue
+
+            totals[action] += 1
+            bucket_ts = _bucket_start(ts_value).isoformat() + "Z"
+            if bucket_ts not in buckets:
+                buckets[bucket_ts] = {"ts": bucket_ts, "allow": 0, "challenge": 0, "block": 0, "total": 0}
+            buckets[bucket_ts][action] += 1
+            buckets[bucket_ts]["total"] += 1
+
+        timeline: List[Dict[str, Any]] = [buckets[key] for key in sorted(buckets.keys())]
+        total_requests = totals["allow"] + totals["challenge"] + totals["block"]
+        allow_rate = (totals["allow"] / total_requests) if total_requests else 0.0
+        challenge_rate = (totals["challenge"] / total_requests) if total_requests else 0.0
+        block_rate = (totals["block"] / total_requests) if total_requests else 0.0
+
+        return {
+            "window_hours": int(max(1, round((datetime.utcnow() - since).total_seconds() / 3600))),
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "policy_action_counts": totals,
+            "totals": {
+                "total_requests": total_requests,
+                "allow_rate": round(allow_rate, 3),
+                "challenge_rate": round(challenge_rate, 3),
+                "block_rate": round(block_rate, 3),
+            },
+            "timeline": timeline,
+        }
+
+    def delete_user_session(self, *, user_identity: str, session_id: str) -> Dict[str, Any]:
+        """Delete audit events belonging to a specific user chat session."""
+        normalized_identity = str(user_identity or "").strip().lower()
+        normalized_session = str(session_id or "").strip()
+        if not normalized_identity or not normalized_session:
+            return {"deleted_events": 0, "user_identity": normalized_identity, "session_id": normalized_session}
+
+        self._init_db()
+        conn = self._connect()
+        cur = conn.cursor()
+        cur.execute("SELECT id, metadata FROM audit_events WHERE metadata IS NOT NULL")
+        rows = cur.fetchall()
+
+        matching_ids: List[int] = []
+        for row in rows:
+            try:
+                metadata = json.loads(row["metadata"] or "{}")
+            except Exception:
+                metadata = {}
+            row_identity = str(metadata.get("user_identity") or "").strip().lower()
+            row_session = str(metadata.get("session_id") or "").strip()
+            if row_identity == normalized_identity and row_session == normalized_session:
+                matching_ids.append(int(row["id"]))
+
+        if matching_ids:
+            cur.executemany("DELETE FROM audit_events WHERE id = ?", [(event_id,) for event_id in matching_ids])
+        conn.commit()
+        conn.close()
+        return {
+            "deleted_events": len(matching_ids),
+            "user_identity": normalized_identity,
+            "session_id": normalized_session,
         }
 
 
@@ -248,10 +393,20 @@ from datetime import datetime
 import os
 import hmac
 import hashlib
+from flask import has_request_context, g
 
 
 class AuditHandler(logging.Handler):
-    PRIORITY_EVENTS = {"SECURITY_DENIED", "PII_REDACTED", "LLM_TOKEN_USAGE"}
+    PRIORITY_EVENTS = {
+        "SECURITY_DENIED",
+        "PII_REDACTED",
+        "PII_TOKENIZED",
+        "PII_DETOKENIZED",
+        "CHAT_SESSION_REDACTED",
+        "PRIVACY_POLICY_BLOCK",
+        "PRIVACY_POLICY_CHALLENGE",
+        "LLM_TOKEN_USAGE",
+    }
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
@@ -260,11 +415,21 @@ class AuditHandler(logging.Handler):
                 return
 
             mgr = get_manager()
+            request_role = None
+            request_identity = None
+            request_name = None
+            request_session = None
+            if has_request_context():
+                request_role = getattr(g, "user_role", None)
+                request_identity = getattr(g, "user_identity", None)
+                request_name = getattr(g, "user_name", None)
+                request_session = getattr(g, "session_id", None)
+
             ev = {
                 "ts": datetime.utcfromtimestamp(record.created),
                 "event_type": event_type,
                 "request_id": getattr(record, "request_id", None),
-                "user_role": getattr(record, "user_role", None),
+                "user_role": getattr(record, "user_role", None) or request_role,
                 "endpoint": getattr(record, "endpoint", None),
                 "message": record.getMessage(),
             }
@@ -280,7 +445,14 @@ class AuditHandler(logging.Handler):
                 ev["forbidden_intents"] = list(forbidden)
 
             # Attach raw metadata if present
-            ev["metadata"] = getattr(record, "metadata", None) or {}
+            metadata = getattr(record, "metadata", None) or {}
+            if request_identity and "user_identity" not in metadata:
+                metadata["user_identity"] = request_identity
+            if request_name and "user_name" not in metadata:
+                metadata["user_name"] = request_name
+            if request_session and "session_id" not in metadata:
+                metadata["session_id"] = request_session
+            ev["metadata"] = metadata
 
             mgr.record_event(ev)
         except Exception:

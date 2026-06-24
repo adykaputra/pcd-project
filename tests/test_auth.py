@@ -1,4 +1,14 @@
 import pytest
+import jwt
+import os
+import re
+from uuid import uuid4
+
+
+def _token_from_set_cookie(resp):
+    cookie = resp.headers.get("Set-Cookie", "")
+    match = re.search(r"pf_session=([^;]+)", cookie)
+    return match.group(1) if match else ""
 
 
 def test_login_success_and_failure(client):
@@ -14,3 +24,83 @@ def test_login_success_and_failure(client):
     assert r2.status_code == 403
     body2 = r2.get_json()
     assert body2.get('status') == 'denied'
+
+
+def test_user_signup_then_login(client):
+    email = f"new-user-{uuid4().hex[:8]}@example.com"
+    signup = client.post(
+        "/signup",
+        json={"name": "Nadia", "email": email, "password": "strongpass123"},
+    )
+    assert signup.status_code == 201
+
+    login = client.post("/login", json={"email": email, "password": "strongpass123"})
+    assert login.status_code == 200
+    body = login.get_json()
+    assert body.get("role") == "user"
+    assert body.get("redirect_url") == "/client"
+    assert _token_from_set_cookie(login)
+
+
+def test_google_start_redirects_to_landing_when_not_configured(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.auth.routes._get_google_oauth_client",
+        lambda: (None, "Google Sign-In is not configured"),
+    )
+    resp = client.get("/auth/google/start")
+    assert resp.status_code == 302
+    assert "/?auth_error=" in resp.headers.get("Location", "")
+
+
+def test_google_callback_routes_user_to_client(client, monkeypatch):
+    class _FakeGoogle:
+        def authorize_access_token(self):
+            return {"userinfo": {"email": f"oauth-{uuid4().hex[:8]}@example.com", "name": "OAuth User"}}
+
+        def get(self, _resource):
+            raise AssertionError("userinfo fallback should not be called in this test")
+
+    monkeypatch.setattr("app.auth.routes._get_google_oauth_client", lambda: (_FakeGoogle(), None))
+
+    resp = client.get("/auth/google/callback?code=fake&state=fake")
+    assert resp.status_code == 302
+    location = resp.headers.get("Location", "")
+    assert location == "/client"
+
+    token = _token_from_set_cookie(resp)
+    payload = jwt.decode(token, os.getenv("JWT_SECRET", "very-secret"), algorithms=["HS256"])
+    assert payload.get("role") == "user"
+    assert payload.get("name") == "OAuth User"
+
+
+def test_google_callback_routes_admin_to_dashboard(client, monkeypatch):
+    admin_email = os.getenv("ADMIN_EMAIL", "admin@privacyfirewall.local")
+
+    class _FakeGoogle:
+        def authorize_access_token(self):
+            return {"userinfo": {"email": admin_email, "name": "Admin"}}
+
+        def get(self, _resource):
+            raise AssertionError("userinfo fallback should not be called in this test")
+
+    monkeypatch.setattr("app.auth.routes._get_google_oauth_client", lambda: (_FakeGoogle(), None))
+
+    resp = client.get("/auth/google/callback?code=fake&state=fake")
+    assert resp.status_code == 302
+    location = resp.headers.get("Location", "")
+    assert location == "/audit/dashboard"
+
+    token = _token_from_set_cookie(resp)
+    payload = jwt.decode(token, os.getenv("JWT_SECRET", "very-secret"), algorithms=["HS256"])
+    assert payload.get("role") == "admin"
+
+
+def test_logout_clears_cookie(client):
+    login = client.post("/login", json={"password": "admin-pass"})
+    assert login.status_code == 200
+    assert "pf_session=" in (login.headers.get("Set-Cookie") or "")
+
+    logout = client.post("/logout")
+    assert logout.status_code == 200
+    cookie = logout.headers.get("Set-Cookie", "")
+    assert "pf_session=;" in cookie
